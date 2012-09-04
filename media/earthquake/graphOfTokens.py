@@ -24,7 +24,8 @@ from evaluate import *
 import sys
 sys.path.append('../../utility/')
 from boundingBox import *
-
+from loadFile import *
+from sklearn import neighbors, datasets
 
 def loadSparseDisMatrix(filename):
     infile = file(filename);
@@ -506,15 +507,20 @@ def loadPoints(filename):
     return term_loc;
 
 
-def transPoints(term_loc, useKernel, bb):
+def transPoints(term_loc, useKernel, bb, useDegree=0):
     term_matrix = {};
+    lat_num = 100;
+    lon_num = 100;
+    if useDegree == 1:
+        lat_num = math.ceil(bb[1] - bb[0]);
+        lon_num = math.ceil(bb[3] - bb[2]);
 
     for term, locs in term_loc.iteritems():
-        matrix = allocMatrix(100, 100);
+        matrix = allocMatrix(lat_num + 2, lon_num + 2);
         for loc in locs:
             lat = loc[0];
             log = loc[1];
-            lati_index, longi_index = getIndexForbb(lat, log, bb, 100);
+            lati_index, longi_index = getIndexForbb(lat, log, bb, lat_num, lon_num);
             if lati_index > 0 and longi_index > 0:
                 matrix[lati_index][longi_index] = matrix[lati_index][longi_index] + 1;
 
@@ -549,7 +555,7 @@ def disOfTerm(term_matrix, method):
 
         count = 0;
         for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
-            print term, term2, dis;
+            #print term, term2, dis;
             count = count + 1;
             if count > 10:
                 break;
@@ -579,7 +585,7 @@ def kernelGeoDis(dis_matrix):
                 dis_matrix[i][j] = parzen_nodes/float(size);
 
 #use the geo-based distance to build up the SPT
-def SPTGeoDis(filename, map, method, use_kernel=0):
+def SPTGeoDis(filename, map, method, use_kernel=0, bydegree=0):
     #filename = './output/Map/term_location_2011_3.txt';
     #load the position of terms
     #term_locs = loadPoints(filename);
@@ -588,9 +594,10 @@ def SPTGeoDis(filename, map, method, use_kernel=0):
     infile.close();
 
     #put the positions of terms into bins, 0 means no kernel, 1 means use kernel
-    term_matrix = transPoints(term_locs, use_kernel, map);
+    term_matrix = transPoints(term_locs, use_kernel, map, bydegree);
+    
     #cal the overlay of term
-    cover_matrix = geoOverlap(term_matrix);
+    #cover_matrix = geoOverlap(term_matrix);
 
     #normalize the term_matrix
     
@@ -701,11 +708,16 @@ def hierarchyGeoMain():
         print '\n';
     buildHierarchy(cover_pair);
 
-def kmeansPurity(dis_matrix, cluster_num, truthfile):
+def kmeansPurity(dis_matrix, cluster_num, truthfile, format='unicode'):
+    
+    accu = K_NN(dis_matrix, truthfile, 1, format);
+    
+    #kmeans
     sum_puri = 0;
     puri = {};
     outfilename = 'output/cluster_temp.txt';
-    for i in range(0, 100):
+    iter_num = 2;
+    for i in range(0, iter_num):
         cluster = kmeansTokens(dis_matrix, cluster_num);
         
         outfile = file(outfilename, 'w');
@@ -717,26 +729,26 @@ def kmeansPurity(dis_matrix, cluster_num, truthfile):
             outfile.write('\n\n');
         outfile.close();
 
-        puri[i] = purityFunc(truthfile, outfilename);
+        puri[i] = purityFunc(truthfile, outfilename, format);
         sum_puri = sum_puri + puri[i];
-    average_puri = sum_puri/100.0;
+    average_puri = sum_puri/float(iter_num);
     print puri;
-    print 'Dis of geo, average=', average_puri;
-    return average_puri;
+    print 'accuracy, average purity=', accu, average_puri;
+    return accu, average_puri;
 
-def clusterCoocurMain(infilename, cluster_num, truthfile):
+def clusterCoocurMain(infilename, cluster_num, truthfile, format):
     infile = file(infilename);
     dis_matrix = json.load(infile);
     
-    return kmeansPurity(dis_matrix, cluster_num, truthfile);
+    return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
 
 #cluster the tokens according to their geo-distances
 #place: 'US', 'JP'
-def clusterGeoDisMain(infilename, method, use_kernel, bb, cluster_num, truthfile):
+def clusterGeoDisMain(infilename, method, use_kernel, bb, cluster_num, truthfile, useDegree, format):
     outfilename = './output/Map/clusters.txt';
-    dis_matrix = SPTGeoDis(infilename, bb, method, use_kernel);
+    dis_matrix = SPTGeoDis(infilename, bb, method, use_kernel, useDegree);
     
-    return kmeansPurity(dis_matrix, cluster_num, truthfile);
+    return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
     
     #root = 'earthquake\n';
     #D, path = DijkstraWrap(dis_matrix, root);
@@ -744,11 +756,21 @@ def clusterGeoDisMain(infilename, method, use_kernel, bb, cluster_num, truthfile
     #layer_cluster = {};
     #drawTree(root, path, 1, layer_cluster);
 
-def disOfTemp(filename, dis_method):
+def disOfTemp(filename, dis_method, dayorhour='hour'):
     infile = file(filename);
-    time_unit = json.load(infile);
+    lines = infile.readlines();
+    if dis_method == 'gauss':
+        time_unit = json.loads(lines[1]);
+    else:
+        if dis_method == 'square':
+            time_unit = json.loads(lines[2]);
+        else:
+            time_unit = json.loads(lines[0]);
     infile.close();
 
+    return disOfTemp2(time_unit, dis_method, dayorhour);
+
+def disOfTemp2(time_unit, dis_method, dayorhour):
     max_time = 0;
     for term, bins in time_unit.iteritems():
         sum = 0;
@@ -757,6 +779,9 @@ def disOfTemp(filename, dis_method):
             if int(time) > max_time:
                 max_time = int(time);
         
+        if sum <= 0:
+            continue;
+
         for time, freq in bins.iteritems():
             bins[time] = freq / float(sum);
 
@@ -766,6 +791,17 @@ def disOfTemp(filename, dis_method):
         for time, freq in bins.iteritems():
             array[int(time)] = freq;
         new_units[term] = array;
+
+    if dayorhour == 'day':
+        new_units = {};
+        for term, bins in time_unit.iteritems():
+            max_day = math.ceil(max_time/24);
+            array = np.zeros(max_day + 2);
+            for time, freq in bins.iteritems():
+                time = float(time);
+                day = math.ceil(time/24);
+                array[day] = array[day] + freq;
+            new_units[term] = array;
 
     dis_matrix = {};
     for term, bins in new_units.iteritems():
@@ -785,24 +821,29 @@ def disOfTemp(filename, dis_method):
             
             dis_matrix[term][term2] = dis;
 
-        count = 0;
-        for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
-            print term.encode('utf-8'), term2.encode('utf-8'), dis;
-            count = count + 1;
-            if count > 10:
-                break;
+        #count = 0;
+        #for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
+            #print term.encode('utf-8'), term2.encode('utf-8'), dis;
+        #    count = count + 1;
+        #    if count > 10:
+        #        break;
 
     return dis_matrix;
 
+#cluster the tokens according to their temporal distance
+def clusterTmpEventDisMain(infilename, method, cluster_num, truthfile, hourorday, format):
+    dis_matrix = disOfTemp(infilename, method, hourorday);
+
+    return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
 
 #cluster the tokens according to their temporal distance
-def clusterTmpDisMain(infilename, method, cluster_num, truthfile):
+def clusterTmpDisMain(infilename, method, cluster_num, truthfile, hourorday, format):
     #infilename = './output/Map/time_unit_2011_3.txt';
     #temporary file
     outfilename = './output/Map/clusters.txt';
-    dis_matrix = disOfTemp(infilename, method);
+    dis_matrix = disOfTemp(infilename, method, hourorday);
 
-    return kmeansPurity(dis_matrix, cluster_num, truthfile);
+    return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
 
     #root = 'earthquake\n';
     #D, path = DijkstraWrap(dis_matrix, root);
@@ -883,7 +924,7 @@ def KL_cal(truth_file, dis_matrix):
     return kl_diver/float(kl_count);
 
 #user the user graph to cluster the terms
-def clusterUserDisMain(infilename, method, cluster_num, truthfile):
+def clusterUserDisMain(infilename, method, cluster_num, truthfile, format):
     #infilename = './output/Map/user_2011_3.txt';
     infile = file(infilename);
     term_user = json.load(infile);
@@ -912,30 +953,8 @@ def clusterUserDisMain(infilename, method, cluster_num, truthfile):
     #normalize and reverse the matrix
     normMatrix(dis_matrix);
      
-    #truthfile = './data/cluster_truth.txt';
-    #temporary cluster file
-    outfilename = './output/Map/clusters.txt';
-    #cluster_num = 6;
-    sum_puri = 0;
-    puri = {};
-    for i in range(0, 100): 
-        cluster = kmeansTokens(dis_matrix, cluster_num);
-        outfile = file(outfilename, 'w');
-        for key, tokens in cluster.iteritems():
-            #outfile.write(key.encode('utf-8') + '\n');
-            for token in tokens:
-                outfile.write(token.encode('utf-8') + '\t');
-            outfile.write('\n\n');
-        outfile.close();
-
-        puri[i] = purityFunc(truthfile, outfilename);
-        sum_puri = sum_puri + puri[i];
-    average_puri = sum_puri/100.0;
-
-    print puri;
-    print 'average=', average_puri;
-    return average_puri;
-
+    return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
+    
 def geoTmpClusterMain():
     infilename = './output/Map/time_unit_2011_3.txt';
     dis_matrix1 = disOfTemp(infilename);
@@ -959,52 +978,102 @@ def geoTmpClusterMain():
         outfile.write('\n\n');
     outfile.close();
 
-def clusterFunc(event, cluster_num):
+def clusterFunc(event, cluster_num, format):
     dirname = './data/event/' + event + '/';
     location_file = dirname + 'term_location.txt';
     time_file = dirname + 'term_time.txt';
+    time_event_file = dirname + 'term_time_event.txt';
     user_file = dirname + 'term_user.txt';
     coocur_file = dirname + 'term_coocurence.txt';
     truthfile = dirname + 'truth_cluster.txt'
     bb, tt = getbbtt(event);
     tt = transTime(tt);
+    conditional_time_file = dirname + 'term_time_theta.txt';
 
     purities = {};
+    
+    #use the time adjusted by windows to cluster
+    print 'temporal windows distance...'
+    #purities['tmp_gauss_window'] = clusterTmpDisMain(time_event_file, 'gauss', cluster_num, truthfile, 'hour', format);
+    #purities['tmp_square_window'] = clusterTmpDisMain(time_event_file, 'square', cluster_num, truthfile, 'hour', format);
+
     #use co-occurence
-    purities['coocur'] = clusterCoocurMain(coocur_file, cluster_num, truthfile);
+    print 'co-ocur.....';
+    #purities['coocur'] = clusterCoocurMain(coocur_file, cluster_num, truthfile, format);
     
     #use the temporal distance to cluster
-    purities['tmp_abs'] = clusterTmpDisMain(time_file, 'abs', cluster_num, truthfile);
-    purities['tmp_KL'] = clusterTmpDisMain(time_file, 'KL', cluster_num, truthfile);
+    print 'temporal distance...'
+    #purities['tmp_abs'] = clusterTmpDisMain(time_file, 'abs', cluster_num, truthfile, 'hour', format);
+    #purities['tmp_KL'] = clusterTmpDisMain(time_file, 'KL', cluster_num, truthfile, 'hour', format);
 
+    #use the conditional temporal distance to cluster Fre*p(t|theta)
+    purities['tmp_abs'] = clusterTmpDisMain(conditional_time_file, 'abs', cluster_num, truthfile, 'hour', format);
+    
     #use the geo distance to cluster
-    purities['geo_abs_noker'] = clusterGeoDisMain(location_file, 'abs', 0, bb, cluster_num, truthfile);
-    purities['geo_abs_ker'] = clusterGeoDisMain(location_file, 'abs', 1, bb, cluster_num, truthfile);
-    purities['geo_kl_noker'] = clusterGeoDisMain(location_file, 'KL', 0, bb, cluster_num, truthfile);
-    purities['geo_kl_ker'] = clusterGeoDisMain(location_file, 'KL', 1, bb, cluster_num, truthfile);
+    print 'geo-spatial distance...'
+    #purities['geo_abs_noker'] = clusterGeoDisMain(location_file, 'abs', 0, bb, cluster_num, truthfile, 1, format);
+    #purities['geo_abs_ker'] = clusterGeoDisMain(location_file, 'abs', 1, bb, cluster_num, truthfile, 1, format);
+    
+    #purities['geo_kl_noker'] = clusterGeoDisMain(location_file, 'KL', 0, bb, cluster_num, truthfile, 1, format);
+    #purities['geo_kl_ker'] = clusterGeoDisMain(location_file, 'KL', 1, bb, cluster_num, truthfile, 1, format);
 
     #use the user distance to cluster
-    purities['user_abs'] = clusterUserDisMain(user_file, 'abs', cluster_num, truthfile);
+    #print 'user-distance...'
+    #purities['user_abs'] = clusterUserDisMain(user_file, 'abs', cluster_num, truthfile, format);
 
     outfilename = dirname + 'cluster_purity.txt';
-    outfile = file(outfilename, 'w');
+    outfile = file(outfilename, 'a');
     json.dump(purities, outfile);
+    outfile.write('\n');
     outfile.close();
 
+def genClusterTruth():
+    event = '8_2011_events';
+    #events = ['earthquake_JP', 'arab_spring', 'earthquake_NZ', 'gov_shutdown', 'background'];
+    events = ['irene', 'jobs_resign', 'earthquake_US', 'arab_spring_late', 'background']
+    all_tokens = [];
+    out_cluster_file = './data/event/' + event + '/cluster_truth.txt';
+    out_file = file(out_cluster_file, 'w');
+
+    for event in events:
+        filename_15 = '/home/yuan/lab/duration/data/' + event + '/top15.txt';
+        tokens = loadToken(filename_15);
+        for token in tokens:
+            out_file.write(token + '\n');
+        out_file.write('\n');
+    out_file.close();
+
+def knn(train_data, test_date, train_labels, K):
+    clf = neighbors.KNeighborsClassifier(K)
+    clf.fit(train_data, train_labels);
+    return clf.predict(test_data);
+
+def accuracy(test_label, predic_label):
+    accu = 0;
+    for i in range(0, len(test_label)):
+        if test_label[i] == predic_label[i]:
+            accu = accu + 1;
+
+    return accu/float(len(test_label));
+
 def clusterMain():
-#    event = 'jpeq_jp';
-#    cluster_num = 6;
-#    clusterFunc(event, cluster_num);
+    event = 'jpeq_jp';
+    cluster_num = 5;
+    clusterFunc(event, cluster_num, 'utf-8');
 
     #all the events co-happend with irene
 #    event = 'irene_overall';
-#    cluster_num = 8;
+#    cluster_num = 3;
+#    clusterFunc(event, cluster_num, 'unicode');
+        
+#    event = 'NBA';
+#    cluster_num = 3;
 #    clusterFunc(event, cluster_num);
 
-    event = 'NBA';
-    cluster_num = 3;
-    clusterFunc(event, cluster_num);
-
+#    event = '3_2011_events';
+#    cluster_num = 5;
+#    clusterFunc(event, cluster_num, 'unicode');
+ 
 
 #genShortPathTreeMain();
 #genMSTMain();
@@ -1017,4 +1086,4 @@ def clusterMain():
 #clusterUserDisMain('abs');
 #clusterTokensMain(False, 4);
 
-clusterMain();
+#clusterMain();

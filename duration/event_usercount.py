@@ -229,4 +229,4 @@ def getEventUserStatMain():
     periods = getJPEQPeriod();
     getEventUserBins(event, periods);
 
-#getEventUserStatMain();
+getEventUserStatMain();

@@ -26,38 +26,19 @@ from Utility import *
 import random
 from utility.dijkstra import *
 from utility.MST import *
-
-def loadCluster(filename):
-    infile = file(filename);
-    lines = infile.readlines();
-    infile.close();
-    label = 1;
-
-    cluster = {};
-    i = 0;
-    term_label = {};
-    while i < len(lines):   
-        cluster[label] = [];
-        while(i < len(lines) and lines[i] != '\n'):
-            items = lines[i].split('\t');
-            for term in items:
-                if term == '\n':
-                    continue;
-                if term[len(term)-1] == '\n':
-                    term = term[0:len(term)-1];
-                cluster[label].append(term);
-                term_label[term] = label;
-            i = i + 1;
-        i = i + 1;
-        label = label + 1;
-
-    return cluster, term_label;
+import sys
+sys.path.append('../../utility/')
+from boundingBox import *
+from loadFile import *
 
 def purity(cluster_truth, cluster):
     purity_num = 0;
     for key, a_cluster in cluster.iteritems():
         mixed_item = {};
         for term in a_cluster:
+            if not term in cluster_truth.keys():
+                continue;
+
             label = cluster_truth[term];
             if mixed_item.get(label) == None:
                 mixed_item[label] = 0;
@@ -71,9 +52,41 @@ def purity(cluster_truth, cluster):
 
     return purity_num / float(len(cluster_truth));
 
-def purityFunc(truth_file, cluster_file):
-    cluster, truth_label = loadCluster(truth_file);
-    cluster, label = loadCluster(cluster_file);
+def closest(term, dis_matrix, sel_tokens):
+    min_dis = 10000;
+    chosen_term = '';
+    for term2, dis in dis_matrix[term].iteritems():
+        if term == term2:
+            continue;
+            
+        if dis < min_dis and term2 in sel_tokens:
+            min_dis = dis;
+            chosen_term = term2;
+    return chosen_term;
+
+def K_NN(dis_matrix, truth_file, K, format='unicode'):
+    cluster, truth_label = loadCluster(truth_file, format);
+    #k-nn
+    accu = 0;
+    for term in dis_matrix.keys():
+        if term not in truth_label.keys():
+            continue;
+
+        chosen_term = closest(term, dis_matrix, truth_label.keys());
+        if chosen_term == '':
+            continue;
+
+        chosen_cluster = truth_label[chosen_term];
+        truth_cluster = truth_label[term];
+        
+        if chosen_cluster == truth_cluster:
+            accu = accu + 1;
+
+    return accu/float(len(truth_label));
+
+def purityFunc(truth_file, cluster_file, format='unicode'):
+    cluster, truth_label = loadCluster(truth_file, format);
+    cluster, label = loadCluster(cluster_file, format);
 
     purity_ratio = purity(truth_label, cluster);
     return purity_ratio;

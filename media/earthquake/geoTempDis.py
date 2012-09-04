@@ -20,6 +20,7 @@ from utility.MST import *
 import sys
 sys.path.append('../../utility/')
 from boundingBox import *
+from loadFile import *
 
 def loadGeoForTerms(list, tweets, term_locs, outputfile=None):
     for tweet in tweets:
@@ -57,6 +58,51 @@ def writeTermGeos(term_locs, outfilename):
         outfile.write('\n');
 
     outfile.close();
+
+def termTimeLocBin(term_list, tweets, time_loc_bin, base_time, end_time, bbs):
+    for conti, box in bbs.iteritems():
+        if conti not in time_loc_bin.keys():
+            time_loc_bin[conti] = {};
+
+    for tweet in tweets:
+        time = tweet['time'];
+        text = tweet['text'];
+        flag = 0;
+            
+        if time == None or time == []:
+            continue;
+        flag = 0;
+        for conti, box in bbs.iteritems():
+            if isTweetInbb(box, tweet):
+                time_bin = time_loc_bin[conti]
+                print conti, time
+                flag = 1
+                break;
+        if flag == 0:
+            print 'not hit!'
+            continue;
+
+        date_time = tweetTimeToDatetime(time);
+        if date_time < base_time or date_time > end_time:
+            continue
+
+        for term in term_list:
+            if similarity4(term, text) >= 1:
+                bins = time_bin.get(term);
+                if bins == None:
+                    bins = {};
+                    time_bin[term] = bins;
+                
+                unit = date_time - base_time;
+                day_time = unit.days * 24;
+                unit = unit.seconds / 3600 + day_time;
+
+                bin = bins.get(unit);
+                if bin == None:
+                    bin = 0;
+                    bins[unit] = bin;
+
+                bins[unit] = bins[unit] + 1;
 
 def termTimeBin(term_list, tweets, time_bin, base_time, end_time):
     for tweet in tweets:
@@ -332,6 +378,38 @@ def relevanceOfToken(tokens, tweet_fold):
 
     return matrix;
 
+#make the mutiple dimension into one
+def assemTimeLocBin(time_loc_bin):
+    assem_time_bin = {};
+    begin_idx = 0;
+    for conti, time_bin in time_loc_bin.iteritems():
+        for term, bin in time_bin.iteritems():
+            if term not in assem_time_bin.keys():
+                assem_time_bin[term] = {};
+
+            for time, fre in bin.iteritems():
+                assem_time_bin[term][begin_idx + time] = fre;
+
+        begin_idx += 1000
+
+    return assem_time_bin
+
+#every hour is a bin
+def timeLocationFeature(term_list, tt, bbs, tweet_fold):
+    time_loc_bin = {};
+    begin = tt[0];
+    end = tt[1];
+    
+    files = os.listdir(tweet_fold);
+    for fname in files:
+        path = tweet_fold + '/' + fname;
+        tweets = loadSimpleTweetsFromFile(path);   
+    
+        termTimeLocBin(term_list, tweets, time_loc_bin, begin, end, bbs);
+
+    time_bin = assemTimeLocBin(time_loc_bin)
+    return time_bin;
+
 #every hour is a bin
 def timeFeature(term_list, tt, tweet_fold):
     term_locs = {};
@@ -359,16 +437,55 @@ def locationFeature(term_list, tweet_fold):
     
     return term_locs;
 
-def extractFeatureFunc(event):
+def getAllbbs():
+    bb = {};
+    bb['Asia'] = getAsiabb();
+    bb['Euro'] = getEuropebb();
+    bb['SouA'] = getSouthAmericabb();
+    bb['NorA'] = getNorthAmericabb();
+    bb['Austra'] = getAustraliabb();
+    bb['Africa'] = getAfricabb();
+    return bb;
+
+#extract the (t,l) features, the modified version of Func2
+def extractFeatureFunc3(tokens, tt, bbs, tweet_fold, fold):
+    #extract the time bin feature
+    time_bin = timeLocationFeature(tokens, tt, bbs, tweet_fold);
+    
+    outfilename = fold + 'term_time_location.txt';
+    outfile = file(outfilename, 'w');
+    json.dump(time_bin, outfile);
+    outfile.close();
+
+#extract the (t,l) features
+def extractFeatureFunc2(event):
+    fold = './data/event/' + event + '/';
+    tweet_fold = fold + 'tweet/';
+    truthfile = fold + 'truth_cluster.txt';
+    bb, tt = getbbtt(event); 
+    bbs = getAllbbs();
+    tt = transTime(tt);
+    tokens = loadTerms(truthfile);
+
+    #extract the time bin feature
+    time_bin = timeLocationFeature(tokens, tt, bbs, tweet_fold);
+    
+    outfilename = fold + 'term_time_location.txt';
+    outfile = file(outfilename, 'w');
+    json.dump(time_bin, outfile);
+    outfile.close();
+
+#extract the time, location, user features, etc
+def extractFeatureFunc1(event):
     fold = './data/event/' + event + '/';
     tweet_fold = fold + 'tweet/';
     truthfile = fold + 'truth_cluster.txt';
     bb, tt = getbbtt(event); 
     tt = transTime(tt);
-
+    tokens = loadTerms(truthfile);
+    
     #extract the co-ocureence feature
     outfilename = fold + 'term_coocurence.txt';
-    tokens = loadTerms(truthfile);
     matrix = relevanceOfToken(tokens, tweet_fold);
     
     outfile = file(outfilename, 'w');
@@ -397,16 +514,90 @@ def extractFeatureFunc(event):
     outfile = file(outfilename, 'w');
     json.dump(term_user, outfile);
     outfile.close();
- 
+
+def extractFeatureFunc(tokens, bb, tt, tweet_fold, fold):
+    #extract the co-ocureence feature
+    outfilename = fold + 'term_coocurence.txt';
+    matrix = relevanceOfToken(tokens, tweet_fold);
+    
+    outfile = file(outfilename, 'w');
+    json.dump(matrix, outfile);
+    outfile.close();
+
+    #extract the time bin feature
+    time_bin = timeFeature(tokens, tt, tweet_fold);
+    
+    outfilename = fold + 'term_time.txt';
+    outfile = file(outfilename, 'w');
+    json.dump(time_bin, outfile);
+    outfile.close();
+
+    #extract the geo feature
+    term_locs = locationFeature(tokens, tweet_fold);
+    outfilename = fold + 'term_location.txt';
+    outfile = file(outfilename, 'w');
+    json.dump(term_locs, outfile);
+    outfile.close();
+    #writeTermGeos(term_locs, outfilename);
+
+    #extract the user intersetion
+    term_user = userFeature(tokens, tweet_fold);
+    outfilename = fold + 'term_user.txt';
+    outfile = file(outfilename, 'w');
+    json.dump(term_user, outfile);
+    outfile.close();
+
+def extractTLFeatureMain():
+    #event = 'jpeq_jp';
+    event = 'irene_overall'
+    #event = '3_2011_events'
+    #event = '8_2011_events'
+    extractFeatureFunc2(event);
+    return
+    
+    #extract multiple events
+    tweet_fold = '/home/yuan/lab/duration/data/8_2011_tweets/';
+    bbs = getAllbbs();
+    tt = getAugust();
+    #tt = getMarch();
+    tt = transTime(tt);
+    out_fold = './data/event/8_2011_events/'
+    #events = ['earthquake_JP', 'arab_spring', 'earthquake_NZ', 'gov_shutdown', 'background'];
+    events = ['irene', 'jobs_resign', 'earthquake_US', 'arab_spring_late', 'background']
+    all_tokens = [];
+    for event in events:
+        filename_15 = '/home/yuan/lab/duration/data/' + event + '/top15.txt';
+        tokens = loadToken(filename_15);
+        all_tokens = all_tokens + tokens;
+
+    extractFeatureFunc3(all_tokens, tt, bbs, tweet_fold, out_fold);
+
 def extractFeatureMain():
-#    event = 'jpeq_jp';
-#    extractFeatureFunc(event);
+    event = 'jpeq_jp';
+    extractFeatureFunc1(event);
+    return;
 
-#    event = 'irene_overall';
-#    extractFeatureFunc(event);
-    event = 'NBA';
-    extractFeatureFunc(event);
+    event = 'irene_overall';
+    extractFeatureFunc1(event);
+    return;
 
+#    event = 'NBA';
+#    extractFeatureFunc1(event);
+    
+    tweet_fold = '/home/yuan/lab/duration/data/3_2011_tweets/';
+    bb = getWorldbb();
+    tt = getMarch();
+    tt = transTime(tt);
+    out_fold = './data/event/3_2011_events/'
+    events = ['earthquake_JP', 'arab_spring', 'earthquake_NZ', 'gov_shutdown', 'background'];
+    #events = ['irene', 'jobs_resign', 'earthquake_US', 'arab_spring_late', 'background']
+    all_tokens = [];
+    for event in events:
+        filename_15 = '/home/yuan/lab/duration/data/' + event + '/top15.txt';
+        tokens = loadToken(filename_15);
+        all_tokens = all_tokens + tokens;
+
+    extractFeatureFunc(all_tokens, bb, tt, tweet_fold, out_fold);
 
 #mapTermsMain();
 #mapPhotoMain2();
@@ -414,4 +605,8 @@ def extractFeatureMain():
 #mapTermsUSMain();
 #termUserMain();
 
-extractFeatureMain();
+#extract the time, co-occur, spatial, user features
+#extractFeatureMain();
+
+#extract the time-location features
+extractTLFeatureMain();

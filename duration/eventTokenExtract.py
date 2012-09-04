@@ -18,24 +18,6 @@ from boundingBox import *
 from getTweets import GetTweets;
 from tweetFilter import *
 
-def loadTokenWei(filename):
-    infile = file(filename, 'rb');
-    lines = infile.readlines();
-    list = {};
-    count = 0;
-    for line in lines:
-        count = count + 1;
-        terms = line.split('\t');
-        term = terms[0];
-        if term == '\n':
-            continue;
-        if term[len(term)-1] == '\n':
-            term = term[0:len(term)-1]
-        list[term] = 1 - 0.1*(count/10);
-
-    infile.close();
-    return list;
-
 
 def ireneEventExtract():
     filename = './data/irene/query.txt';
@@ -170,6 +152,20 @@ def jobsEventExtract():
     if not os.path.exists(out_fold):
         os.makedirs(out_fold);
     filterTweetsByWeiTTL(bb, year, month, day_from, day_to, tokens, out_fold);
+
+def JPEQJPExtract():
+    bb = getWorldbb();
+    year = 2011;
+    month = 3;
+    day_from = 1;
+    day_to = 30;
+    outfilename_100 = './data/jpeq_jp/top100.txt'
+    #use the selected tokens, bb, time to filter the tweets
+    tokens = loadTokenCluster(outfilename_100, 'utf-8');
+    out_fold = './data/jpeq_jp/tweet/';
+    if not os.path.exists(out_fold):
+        os.makedirs(out_fold);
+    filterTweetsByTTL(bb, year, month, day_from, day_to, tokens, out_fold);
  
 def NZEQEventExtract():
     return 0;
@@ -285,7 +281,57 @@ def electionEventExtract():
         os.makedirs(out_fold);
     filterTweetsByWeiTTL(bb, year, month, day_from, day_to, tokens, out_fold);
  
-ireneEventExtract();
+def eventTokenExtractMain(event):
+    filename = './data/'+event+'/query.txt';
+    query = loadTerms(filename);
+    bb = getWorldbb();
+    #bb = getUSbb();
+    year = 2011;
+    month = 8;
+    day_from = 1;
+    day_to = 30;
+    language = 'English';
+    outfilename = './data/'+event+'/select_tokens.txt';
+    tokenOfAQueryExtract(bb, year, month, day_from, day_to, query, outfilename, language);
+    
+    filename_com = './data/election/common_tokens.txt';
+    #filter the selected tokens by the common tokens
+    outfilename_100 = './data/'+event+'/top100_tokens.txt'
+    tokenFilterByIDF(outfilename, filename_com, outfilename_100, 100, format='single');
+
+    #use the selected tokens, bb, time to filter the tweets
+    #tokens = loadTokenWei(outfilename_100);
+    #out_fold = './data/'+event+'/tweets/';
+    #if not os.path.exists(out_fold):
+    #    os.makedirs(out_fold);
+    #filterTweetsByWeiTTL(bb, year, month, day_from, day_to, tokens, out_fold);
+
+def filterMain():
+    #use the selected tokens, bb, time to filter the tweets
+   
+    #events = ['earthquake_JP', 'arab_spring', 'earthquake_NZ', 'gov_shutdown'];
+    events = ['irene', 'jobs_resign', 'earthquake_US', 'arab_spring_late']
+    all_tokens = [];
+    for event in events:
+        filename_15 = './data/' + event + '/top15.txt';
+        tokens = loadToken(filename_15);
+        all_tokens = all_tokens + tokens;
+
+    out_fold = './data/8_2011_tweets/';
+    if not os.path.exists(out_fold):
+        os.makedirs(out_fold);
+    bb = getWorldbb();
+    year = 2011;
+    month = 8;
+    day_from = 16;
+    day_to = 30;
+    filterTweetsByTTL(bb, year, month, day_from, day_to, all_tokens, out_fold);
+
+#eventTokenExtractMain('arab_spring_late');
+#filterMain();
+
+JPEQJPExtract();
+#ireneEventExtract();
 #jpeqUSEventExtract();
 #konyEventExtract();
 #royalWedEventExtract();

@@ -516,37 +516,37 @@ def centerTokens(dist_matrix, cluster_label):
 
     return new_centroid;
 
-def kmeansTokens(matrix, K):
-    list = matrix.keys();
-    centroid = random.sample(list, K);
-    label = {};
-    dist = {};
+#def kmeansTokens(matrix, K):
+#    list = matrix.keys();
+#    centroid = random.sample(list, K);
+#    label = {};
+#    dist = {};
 
-    iter = 0;
-    isChange = True;
-    while iter < 100 and isChange:
-        iter = iter + 1;
+#    iter = 0;
+#    isChange = True;
+#    while iter < 100 and isChange:
+#        iter = iter + 1;
         # label the tokens
-        cluster = {};
-        for center in centroid:
-            cluster[center] = [];
+#        cluster = {};
+#        for center in centroid:
+#            cluster[center] = [];
 
-        for token in list:
-            min_dis = 11111111;
-            for center in centroid:
-                if matrix[center][token] < min_dis:
-                    min_dis = matrix[center][token];
-                    sel_label = center;
-            cluster[sel_label].append(token);
+#        for token in list:
+#            min_dis = 11111111;
+#            for center in centroid:
+#                if matrix[center][token] < min_dis:
+#                    min_dis = matrix[center][token];
+#                    sel_label = center;
+#            cluster[sel_label].append(token);
 
         # re-cal the centriod
-        new_centroid = centerTokens(matrix, cluster);
-        for center in new_centroid:
-            if center not in centroid:
-                isChange = True;
-                break;
-            isChange = False;
-        centroid = new_centroid;
+#        new_centroid = centerTokens(matrix, cluster);
+#        for center in new_centroid:
+#            if center not in centroid:
+#                isChange = True;
+#                break;
+#            isChange = False;
+#        centroid = new_centroid;
 
-    return cluster;
+#    return cluster;
 
