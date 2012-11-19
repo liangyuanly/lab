@@ -16,7 +16,7 @@ from nltk.tokenize.api import *
 from tinysegmenter import *
 from settings import Settings
 from operator import itemgetter
-from Utility import *
+#from Utility import *
 import random
 from utility.dijkstra import *
 from utility.MST import *
@@ -26,6 +26,48 @@ sys.path.append('../../utility/')
 from boundingBox import *
 from loadFile import *
 from sklearn import neighbors, datasets
+from kmeans import kmeansTokens
+
+def disOfDic(dic1, dic2, method = 'abs'):
+    dis = 0.0;
+    for term, value in dic1.iteritems():
+        value2 = 0;
+        if term in dic2.keys():
+            value2 = dic2[term];
+        dis += abs(value - value2);
+    
+    for term, value in dic2.iteritems():
+        if term in dic1.keys():
+            continue;
+        dis += abs(value - 0.0);
+
+    return dis;
+
+def allocMatrix(n, m):
+    matrix = {};
+    #array
+    if n == 1:
+        for j in range(0, m):
+            matrix[j] = 0;
+    else:
+        for i in range(0, n):
+            matrix[i] = {};
+            for j in range(0, m):
+                matrix[i][j] = 0;
+    return matrix;
+
+def norMatrix(matrix):
+    sum = 0;
+    for i in range(0, len(matrix)):
+        for j in range(0, len(matrix)):
+            sum = sum + matrix[i][j];
+    
+    if sum == 0:
+        return;
+
+    for i in range(0, len(matrix)):
+        for j in range(0, len(matrix)):
+            matrix[i][j] = matrix[i][j]/float(sum);
 
 def loadSparseDisMatrix(filename):
     infile = file(filename);
@@ -33,7 +75,6 @@ def loadSparseDisMatrix(filename):
     matrix = cjson.decode(lines[0]);
 
     return matrix;
-
 
 def loadDisMatrix(filename):
     infile = file(filename);
@@ -232,7 +273,7 @@ def fillDisMatrix(dis_matrix):
                     continue;
                 D, path = Dijkstra(matrix_tmp, key);
                 for des, dis in D.iteritems():
-                    print key.encode('utf-8'), des.encode('utf-8'), dis;
+                    #print key.encode('utf-8'), des.encode('utf-8'), dis;
                     
                     #if dis == 0 and des != key:
                     dis_matrix[key][des] = dis;
@@ -272,8 +313,8 @@ def loadTokens(token_filename, year, month, day, isImage):
     if tokens == None:
         return;
     
-    for token, freq in sorted(tokens.iteritems(), key=lambda (k,v):(v,k), reverse = True):
-        print token.encode('utf-8'), freq;
+    #for token, freq in sorted(tokens.iteritems(), key=lambda (k,v):(v,k), reverse = True):
+    #    print token.encode('utf-8'), freq;
 
 
 def relevanceOfToken(tokens, stop_words, year, month, day, day_to, event='JP'):
@@ -506,11 +547,41 @@ def loadPoints(filename):
     
     return term_loc;
 
-
-def transPoints(term_loc, useKernel, bb, useDegree=0):
+def transTimePoints(term_time_loc, useKernel, bb, useDegree=0, grid_count=100):
     term_matrix = {};
-    lat_num = 100;
-    lon_num = 100;
+    lat_num = grid_count;
+    lon_num = grid_count;
+    if useDegree == 1:
+        lat_num = math.ceil(bb[1] - bb[0]);
+        lon_num = math.ceil(bb[3] - bb[2]);
+
+    for term, time_locs in term_time_loc.iteritems():
+        term_matrix[term] = {};
+        for day, locs in time_locs.iteritems():
+            matrix = {};
+            term_matrix[term][day] = matrix;
+            #matrix = allocMatrix(lat_num + 2, lon_num + 2);
+            for loc in locs:
+                lat = loc[0];
+                log = loc[1];
+                lati_index, longi_index = getIndexForbb(lat, log, bb, lat_num, lon_num);
+                if lati_index > 0 and longi_index > 0:
+                    key = lati_index * lat_num + longi_index;
+                    if key not in matrix.keys():
+                        matrix[key] = 0;
+
+                    matrix[key] += 1;
+
+            if useKernel == 1:
+                kernelGeoDis(matrix);
+
+    #        norMatrix(matrix);
+    return term_matrix;
+
+def transPoints(term_loc, useKernel, bb, useDegree=0, grid_count=100):
+    term_matrix = {};
+    lat_num = grid_count;
+    lon_num = grid_count;
     if useDegree == 1:
         lat_num = math.ceil(bb[1] - bb[0]);
         lon_num = math.ceil(bb[3] - bb[2]);
@@ -530,6 +601,55 @@ def transPoints(term_loc, useKernel, bb, useDegree=0):
         norMatrix(matrix);
         term_matrix[term] = matrix;
     return term_matrix;
+
+def disOfTimeLocsList(time_locs1, time_locs2, method):
+    dis = 0.0;
+    for time1, locs1 in time_locs1.iteritems():
+        if time1 in time_locs2.keys():
+            locs2 = time_locs2[time1];
+        else:
+            locs2 = {};
+        for loc_index, fre in locs1.iteritems():
+            if loc_index in locs2.keys():
+                dis += abs(fre-locs2[loc_index]);
+            else:
+                dis += fre;
+    
+    for time2, locs2 in time_locs2.iteritems():
+        if time2 in time_locs1.keys():
+            locs1 = time_locs1[time1];
+        else:
+            locs1 = {};
+        for loc_index, fre in locs2.iteritems():
+            if loc_index in locs1.keys(): #already calculated
+                continue;
+            else:
+                dis += abs(fre-locs2[loc_index]);
+    return dis;
+
+def disOfTimeGeo(term_matrix, method):
+    term_num = len(term_matrix);
+
+    dis_matrix = {};
+    for term, time_locs in term_matrix.iteritems():
+        dis = 0;
+        dis_matrix[term] = {};
+        for term2, time_locs2 in term_matrix.iteritems():
+            if term2 == term:
+                dis_matrix[term][term] = 0;
+                continue;
+            
+            dis = disOfTimeLocsList(time_locs, time_locs2, 'abs')  
+            dis_matrix[term][term2] = dis;
+            
+        count = 0;
+        for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
+            #print term, term2, dis;
+            count = count + 1;
+            if count > 10:
+                break;
+
+    return dis_matrix;
 
 def disOfTerm(term_matrix, method):
     term_num = len(term_matrix);
@@ -708,26 +828,18 @@ def hierarchyGeoMain():
         print '\n';
     buildHierarchy(cover_pair);
 
-def kmeansPurity(dis_matrix, cluster_num, truthfile, format='unicode'):
-    
+def kmeansPurity(dis_matrix, cluster_num, truthfile, format='unicode'): 
     accu = K_NN(dis_matrix, truthfile, 1, format);
     
     #kmeans
     sum_puri = 0;
     puri = {};
     outfilename = 'output/cluster_temp.txt';
-    iter_num = 2;
+    iter_num = 1;
     for i in range(0, iter_num):
-        cluster = kmeansTokens(dis_matrix, cluster_num);
+        cluster, cluster_label = kmeansTokens(dis_matrix, cluster_num);
         
-        outfile = file(outfilename, 'w');
-        #outfile = file('./output/Map/cluster_of_geodis_kernel.txt', 'w');
-        for key, tokens in cluster.iteritems():
-            #outfile.write(key.encode('utf-8')+'\n');
-            for token in tokens:
-                outfile.write(token.encode('utf-8')+'\t');
-            outfile.write('\n\n');
-        outfile.close();
+        dumpCluster(cluster, outfilename);
 
         puri[i] = purityFunc(truthfile, outfilename, format);
         sum_puri = sum_puri + puri[i];
@@ -740,6 +852,14 @@ def clusterCoocurMain(infilename, cluster_num, truthfile, format):
     infile = file(infilename);
     dis_matrix = json.load(infile);
     
+    for term in dis_matrix.keys():
+        count = 0;
+        for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
+            #print term.encode('utf-8'), term2.encode('utf-8'), dis;
+            count = count + 1;
+            if count > 10:
+                break;
+
     return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
 
 #cluster the tokens according to their geo-distances
@@ -770,7 +890,34 @@ def disOfTemp(filename, dis_method, dayorhour='hour'):
 
     return disOfTemp2(time_unit, dis_method, dayorhour);
 
-def disOfTemp2(time_unit, dis_method, dayorhour):
+def disOfTemp2(term_time_bin, dis_method, dayorhour):
+    dis_matrix = {};
+    for term1 in term_time_bin.keys():
+        dis_matrix[term1] = {};
+    
+    count = 1;
+    for term1 in term_time_bin.keys():
+        for term2 in term_time_bin.keys():
+            if cmp(term1, term2) > 0:
+                continue;
+
+            if cmp(term1, term2) == 0:
+                dis_matrix[term1][term2] = 0;
+                continue;
+
+            time_bin1 = term_time_bin[term1];
+            time_bin2 = term_time_bin[term2];
+
+            dis = disOfDic(time_bin1, time_bin2);
+            dis_matrix[term1][term2] = dis;
+            dis_matrix[term2][term1] = dis;
+
+    return dis_matrix;
+
+def disOfTemp3(time_unit, dis_method, dayorhour):
+    
+    print 'term numbers in disOfTemp is', len(time_unit);
+    
     max_time = 0;
     for term, bins in time_unit.iteritems():
         sum = 0;
@@ -820,13 +967,12 @@ def disOfTemp2(time_unit, dis_method, dayorhour):
                     dis = dis + abs(bins[i] - bins2[i]);
             
             dis_matrix[term][term2] = dis;
-
-        #count = 0;
-        #for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
+        count = 0;
+        for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
             #print term.encode('utf-8'), term2.encode('utf-8'), dis;
-        #    count = count + 1;
-        #    if count > 10:
-        #        break;
+            count = count + 1;
+            if count > 10:
+               break;
 
     return dis_matrix;
 
@@ -840,7 +986,7 @@ def clusterTmpEventDisMain(infilename, method, cluster_num, truthfile, hourorday
 def clusterTmpDisMain(infilename, method, cluster_num, truthfile, hourorday, format):
     #infilename = './output/Map/time_unit_2011_3.txt';
     #temporary file
-    outfilename = './output/Map/clusters.txt';
+    #outfilename = './output/Map/clusters.txt';
     dis_matrix = disOfTemp(infilename, method, hourorday);
 
     return kmeansPurity(dis_matrix, cluster_num, truthfile, format);
@@ -999,15 +1145,15 @@ def clusterFunc(event, cluster_num, format):
 
     #use co-occurence
     print 'co-ocur.....';
-    #purities['coocur'] = clusterCoocurMain(coocur_file, cluster_num, truthfile, format);
+    purities['coocur'] = clusterCoocurMain(coocur_file, cluster_num, truthfile, format);
     
     #use the temporal distance to cluster
     print 'temporal distance...'
-    #purities['tmp_abs'] = clusterTmpDisMain(time_file, 'abs', cluster_num, truthfile, 'hour', format);
+    #purities['tmp_abs'] = clusterTmpDisMain(time_file, 'abs', cluster_num, truthfile, 'day', format);
     #purities['tmp_KL'] = clusterTmpDisMain(time_file, 'KL', cluster_num, truthfile, 'hour', format);
 
     #use the conditional temporal distance to cluster Fre*p(t|theta)
-    purities['tmp_abs'] = clusterTmpDisMain(conditional_time_file, 'abs', cluster_num, truthfile, 'hour', format);
+    #purities['tmp_abs'] = clusterTmpDisMain(conditional_time_file, 'abs', cluster_num, truthfile, 'hour', format);
     
     #use the geo distance to cluster
     print 'geo-spatial distance...'
@@ -1057,6 +1203,11 @@ def accuracy(test_label, predic_label):
     return accu/float(len(test_label));
 
 def clusterMain():
+    event = '3_2011_tags';
+    cluster_num = 100;
+    clusterFunc(event, cluster_num, 'unicode');
+    return;
+
     event = 'jpeq_jp';
     cluster_num = 5;
     clusterFunc(event, cluster_num, 'utf-8');
@@ -1074,16 +1225,16 @@ def clusterMain():
 #    cluster_num = 5;
 #    clusterFunc(event, cluster_num, 'unicode');
  
+if __name__ == '__main__':
+    #genShortPathTreeMain();
+    #genMSTMain();
+    #hierarchyGeoMain();
+    #geoTmpClusterMain();
 
-#genShortPathTreeMain();
-#genMSTMain();
-#hierarchyGeoMain();
-#geoTmpClusterMain();
+    #4 cluster method
+    #clusterTmpDisMain('abs');
+    #clusterGeoDisMain('KL', 1);
+    #clusterUserDisMain('abs');
+    #clusterTokensMain(False, 4);
 
-#4 cluster method
-#clusterTmpDisMain('abs');
-#clusterGeoDisMain('KL', 1);
-#clusterUserDisMain('abs');
-#clusterTokensMain(False, 4);
-
-#clusterMain();
+    clusterMain();

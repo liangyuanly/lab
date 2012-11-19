@@ -474,7 +474,7 @@ def getRetweetedImageMain():
             #shutil.copy(tweet['path'], )
             print tweet;
 
-getTopImageMain();
-#generateInfoForPhoto();
+#getTopImageMain();
+generateInfoForPhoto();
 #getClusterPhotoMain();
 #getSPTClusterPhotoMain();

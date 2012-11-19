@@ -259,8 +259,8 @@ def listEarthquakeTweet():
     tweet_fre_spa = np.zeros([step, step]);
     image_fre_spa = np.zeros([step, step]);
 
-    for days in range(11, 15): # Japan earthquake
-    #for days in range(21,25): # NewZerland
+    #for days in range(11, 15): # Japan earthquake
+    for days in range(20,30): # NewZerland
         path = main_path+str(days)+'/';
         dirList=os.listdir(path);
         count = 0;

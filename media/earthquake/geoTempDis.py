@@ -13,7 +13,7 @@ import nltk
 from tinysegmenter import *
 from settings import Settings
 from operator import itemgetter
-from Utility import *
+#from Utility import *
 import random
 from utility.dijkstra import *
 from utility.MST import *
@@ -21,7 +21,45 @@ import sys
 sys.path.append('../../utility/')
 from boundingBox import *
 from loadFile import *
+from common import *
+from tokenization import similarityCal2
 
+global g_tag_flag
+
+def loadTimeGeoForTerms(list, tweets, term_time_locs, outputfile=None):
+    global g_tag_flag;
+    for tweet in tweets:
+        geo_term = 'corrdinate';
+        if not geo_term in tweet.keys():
+            geo_term = 'geo';
+        
+        if tweet[geo_term] == None or tweet[geo_term] == []:
+            continue;
+
+        text = tweet['text'];
+        time = tweet['time'];
+        time = tweetTimeToDatetime(time);
+        day = datetimeDateToStr(time)
+
+        flag = 0;
+        for term in list:
+            if similarityCal2(term, tweet, g_tag_flag) >= 1:
+                time_locs = term_time_locs.get(term);
+                if time_locs == None:
+                    time_locs = {};
+                    term_time_locs[term] = time_locs;
+
+                if day not in time_locs.keys():
+                    time_locs[day] = [];
+
+                flag = 1;
+                time_locs[day].append(tweet[geo_term]);
+            
+        if flag == 1:
+            if outputfile != None:
+                json.dump(tweet, outputfile);
+                outputfile.write('\n')
+ 
 def loadGeoForTerms(list, tweets, term_locs, outputfile=None):
     for tweet in tweets:
         geo_term = 'corrdinate';
@@ -34,7 +72,7 @@ def loadGeoForTerms(list, tweets, term_locs, outputfile=None):
         text = tweet['text'];
         flag = 0;
         for term in list:
-            if similarity4(term, text) >= 1:
+            if similarityCal2(term, tweet, g_tag_flag) >= 1:
                 locs = term_locs.get(term);
                 if locs == None:
                     locs = [];
@@ -60,6 +98,7 @@ def writeTermGeos(term_locs, outfilename):
     outfile.close();
 
 def termTimeLocBin(term_list, tweets, time_loc_bin, base_time, end_time, bbs):
+    global g_tag_flag;
     for conti, box in bbs.iteritems():
         if conti not in time_loc_bin.keys():
             time_loc_bin[conti] = {};
@@ -87,7 +126,7 @@ def termTimeLocBin(term_list, tweets, time_loc_bin, base_time, end_time, bbs):
             continue
 
         for term in term_list:
-            if similarity4(term, text) >= 1:
+            if similarityCal2(term, tweet, g_tag_flag) >= 1:
                 bins = time_bin.get(term);
                 if bins == None:
                     bins = {};
@@ -105,6 +144,7 @@ def termTimeLocBin(term_list, tweets, time_loc_bin, base_time, end_time, bbs):
                 bins[unit] = bins[unit] + 1;
 
 def termTimeBin(term_list, tweets, time_bin, base_time, end_time):
+    global g_tag_flag;
     for tweet in tweets:
         time = tweet['time'];
         text = tweet['text'];
@@ -118,7 +158,7 @@ def termTimeBin(term_list, tweets, time_bin, base_time, end_time):
             continue
 
         for term in term_list:
-            if similarity4(term, text) >= 1:
+            if similarityCal2(term, tweet, g_tag_flag) >= 1:
                 bins = time_bin.get(term);
                 if bins == None:
                     bins = {};
@@ -144,11 +184,12 @@ def termTimeBin(term_list, tweets, time_bin, base_time, end_time):
 #        outfile.write('\n');
 #    outfile.close();
 
-def userGraph(term_list, tweets, term_users):
+def userGraph(term_list, tweets, term_users): 
+    global g_tag_flag;
     for tweet in tweets:
         text = tweet['text'];
         for term in term_list:
-            if similarity4(term, text) > 0:
+            if similarityCal2(term, tweet, g_tag_flag) > 0:
                 user = tweet['user'];
                 user_list = term_users.get(term);
                 if user_list == None:
@@ -319,20 +360,24 @@ def mapTermsMain():
 
 def calRelevance(sel_tokens, rel_matrix, tweets):
     #count = 0;
+    global g_tag_flag;
+    print g_tag_flag
     for tweet in tweets:
         #count = count + 1;
         #if count > 100:
         #    break;
         text = string.lower(tweet['text']);
         for token in sel_tokens:
-            if text.find(token) < 0:
+            if similarityCal2(token, tweet, g_tag_flag) < 1:
+            #if text.find(token) < 0:
                 continue;
 
             for token2 in sel_tokens:
                 if token == token2:
                     continue;
 
-                if text.find(token2) < 0:
+                if similarityCal2(token2, tweet, g_tag_flag) < 1:
+                #if text.find(token2) < 0:
                     continue;
 
                 rel_matrix[token][token2] = rel_matrix[token][token2] + 1;
@@ -350,7 +395,7 @@ def reverse(dis_matrix):
                 dis_matrix[key][key2] = max_freq/float(dis_matrix[key][key2]);
 
 #extract the coocurence 
-def relevanceOfToken(tokens, tweet_fold):
+def relevanceOfToken(tokens, tweet_fold, isTag=0):
     matrix = {};
     for token in tokens:
         if token == 'totaltokennum':
@@ -363,6 +408,7 @@ def relevanceOfToken(tokens, tweet_fold):
 
     files = os.listdir(tweet_fold);
     for fname in files:
+        print tweet_fold + fname;
         tweet_list = loadSimpleTweetsFromFile(tweet_fold + fname);
         calRelevance(tokens, matrix, tweet_list);
 
@@ -394,7 +440,7 @@ def assemTimeLocBin(time_loc_bin):
 
     return assem_time_bin
 
-#every hour is a bin
+#every hour is a bin, hour + continent
 def timeLocationFeature(term_list, tt, bbs, tweet_fold):
     time_loc_bin = {};
     begin = tt[0];
@@ -420,11 +466,24 @@ def timeFeature(term_list, tt, tweet_fold):
     files = os.listdir(tweet_fold);
     for fname in files:
         path = tweet_fold + '/' + fname;
+        print path;
         tweets = loadSimpleTweetsFromFile(path);   
     
         termTimeBin(term_list, tweets, time_bin, begin, end);
 
     return time_bin;
+
+#time geo feature  day + geo location
+def timeGeoFeature(term_list, tweet_fold):
+    term_time_locs = {};
+    term_locs = {};
+    files = os.listdir(tweet_fold);
+    for filename in files:
+        tweet_file = tweet_fold + filename;
+        tweet_list = loadSimpleTweetsFromFile(tweet_file);
+        loadTimeGeoForTerms(term_list, tweet_list, term_time_locs);
+    
+    return term_time_locs;
 
 def locationFeature(term_list, tweet_fold):
     term_locs = {};
@@ -432,6 +491,7 @@ def locationFeature(term_list, tweet_fold):
     files = os.listdir(tweet_fold);
     for filename in files:
         tweet_file = tweet_fold + filename;
+        print tweet_file
         tweet_list = loadSimpleTweetsFromFile(tweet_file);
         loadGeoForTerms(term_list, tweet_list, term_locs);
     
@@ -447,8 +507,8 @@ def getAllbbs():
     bb['Africa'] = getAfricabb();
     return bb;
 
-#extract the (t,l) features, the modified version of Func2
-def extractFeatureFunc3(tokens, tt, bbs, tweet_fold, fold):
+#extract the (t,l) features, continent + time_bin
+def extractFeatureFunc2(tokens, tt, bbs, tweet_fold, fold):
     #extract the time bin feature
     time_bin = timeLocationFeature(tokens, tt, bbs, tweet_fold);
     
@@ -457,23 +517,73 @@ def extractFeatureFunc3(tokens, tt, bbs, tweet_fold, fold):
     json.dump(time_bin, outfile);
     outfile.close();
 
-#extract the (t,l) features
-def extractFeatureFunc2(event):
-    fold = './data/event/' + event + '/';
-    tweet_fold = fold + 'tweet/';
-    truthfile = fold + 'truth_cluster.txt';
-    bb, tt = getbbtt(event); 
-    bbs = getAllbbs();
-    tt = transTime(tt);
-    tokens = loadTerms(truthfile);
-
+#extract the (t,l) features, day + geo_grids
+def extractFeatureFunc3(tokens, tweet_fold, fold):
     #extract the time bin feature
-    time_bin = timeLocationFeature(tokens, tt, bbs, tweet_fold);
+    time_bin = timeGeoFeature(tokens, tweet_fold);
     
-    outfilename = fold + 'term_time_location.txt';
+    outfilename = fold + 'term_time_geo.txt';
     outfile = file(outfilename, 'w');
     json.dump(time_bin, outfile);
     outfile.close();
+
+#extract the (t,l) features, continent + time_bin
+#def extractFeatureFunc2(event):
+#    fold = './data/event/' + event + '/';
+#    tweet_fold = fold + 'tweet/';
+#    truthfile = fold + 'truth_cluster.txt';
+#    bb, tt = getbbtt(event); 
+#    bbs = getAllbbs();
+#    tt = transTime(tt);
+#    tokens = loadTerms(truthfile);
+
+    #extract the time bin feature
+#    time_bin = timeLocationFeature(tokens, tt, bbs, tweet_fold);
+    
+#    outfilename = fold + 'term_time_location.txt';
+#    outfile = file(outfilename, 'w');
+#    json.dump(time_bin, outfile);
+#    outfile.close();
+
+def extractFeatureFunc11(bb, tt, tokens, tweet_fold, fold, feature_index = 0):
+    if feature_index == 0:
+        #extract the co-ocureence feature
+        print 'cal co-occurrence features'
+        outfilename = fold + 'term_coocurence.txt';
+        matrix = relevanceOfToken(tokens, tweet_fold);
+        
+        outfile = file(outfilename, 'w');
+        json.dump(matrix, outfile);
+        outfile.close();
+    
+    if feature_index == 1:
+        print 'cal temporal features'
+        #extract the time bin feature
+        time_bin = timeFeature(tokens, tt, tweet_fold);
+        
+        print 'the number of tokens is' , len(tokens), 'the number of terms in time feature is', len(time_bin);
+        
+        outfilename = fold + 'term_time.txt';
+        outfile = file(outfilename, 'w');
+        json.dump(time_bin, outfile);
+        outfile.close();
+
+    if feature_index == 2:
+        print 'cal geo location features'
+        #extract the geo feature
+        term_locs = locationFeature(tokens, tweet_fold);
+        outfilename = fold + 'term_location.txt';
+        outfile = file(outfilename, 'w');
+        json.dump(term_locs, outfile);
+        outfile.close();
+
+    if feature_index == 3:
+        #extract the user intersetion
+        term_user = userFeature(tokens, tweet_fold);
+        outfilename = fold + 'term_user.txt';
+        outfile = file(outfilename, 'w');
+        json.dump(term_user, outfile);
+        outfile.close();
 
 #extract the time, location, user features, etc
 def extractFeatureFunc1(event):
@@ -526,7 +636,7 @@ def extractFeatureFunc(tokens, bb, tt, tweet_fold, fold):
 
     #extract the time bin feature
     time_bin = timeFeature(tokens, tt, tweet_fold);
-    
+
     outfilename = fold + 'term_time.txt';
     outfile = file(outfilename, 'w');
     json.dump(time_bin, outfile);
@@ -547,12 +657,44 @@ def extractFeatureFunc(tokens, bb, tt, tweet_fold, fold):
     json.dump(term_user, outfile);
     outfile.close();
 
+#day + geo lcoation
+def extractTGeoFeatureMain():
+#    event = 'jpeq_jp';
+#    #event = 'irene_overall'
+#    fold = './data/event/' + event + '/';
+#    tweet_fold = fold + 'tweet/';
+#    truthfile = fold + 'truth_cluster.txt';
+#    tokens = loadTerms(truthfile);
+#    extractFeatureFunc3(tokens, tweet_fold, fold);
+#    return
+    
+    #extract multiple events
+    tweet_fold = '/home/yuan/lab/duration/data/3_2011_tweets/';
+    out_fold = './data/event/3_2011_events/'
+    events = ['earthquake_JP', 'arab_spring', 'earthquake_NZ', 'gov_shutdown', 'background'];
+    #events = ['irene', 'jobs_resign', 'earthquake_US', 'arab_spring_late', 'background']
+    all_tokens = [];
+    for event in events:
+        filename_15 = '/home/yuan/lab/duration/data/' + event + '/top15.txt';
+        tokens = loadToken(filename_15);
+        all_tokens = all_tokens + tokens;
+
+    extractFeatureFunc3(all_tokens, tweet_fold, out_fold);
+
+#continent + time_bin(hour)
 def extractTLFeatureMain():
     #event = 'jpeq_jp';
     event = 'irene_overall'
     #event = '3_2011_events'
     #event = '8_2011_events'
-    extractFeatureFunc2(event);
+    fold = './data/event/' + event + '/';
+    tweet_fold = fold + 'tweet/';
+    truthfile = fold + 'truth_cluster.txt';
+    bb, tt = getbbtt(event); 
+    bbs = getAllbbs();
+    tt = transTime(tt);
+    tokens = loadTerms(truthfile);
+    extractFeatureFunc2(tokens, tt, bbs, tweet_fold, fold);
     return
     
     #extract multiple events
@@ -570,8 +712,21 @@ def extractTLFeatureMain():
         tokens = loadToken(filename_15);
         all_tokens = all_tokens + tokens;
 
-    extractFeatureFunc3(all_tokens, tt, bbs, tweet_fold, out_fold);
+    extractFeatureFunc2(all_tokens, tt, bbs, tweet_fold, out_fold);
 
+def extractTagFeatureMain():
+    global g_tag_flag;
+    g_tag_flag = 1;
+    event = '3_2011_tags';
+    tweet_fold = '/home/yuan/lab/duration/data/3_2011_tag_tweets/TTag/';
+    bb = getWorldbb();
+    tt = getMarch();
+    tt = transTime(tt);
+    out_folder = './data/event/3_2011_tags/'
+
+    tags = loadTopTags('/home/yuan/lab/duration/data/3_2011_tag_tweets/tags.txt');
+    extractFeatureFunc11(bb, tt, tags, tweet_fold, out_folder, 1);
+ 
 def extractFeatureMain():
     event = 'jpeq_jp';
     extractFeatureFunc1(event);
@@ -599,14 +754,32 @@ def extractFeatureMain():
 
     extractFeatureFunc(all_tokens, bb, tt, tweet_fold, out_fold);
 
-#mapTermsMain();
-#mapPhotoMain2();
-#termTimeBinMain();
-#mapTermsUSMain();
-#termUserMain();
+def transTags():
+    tags = loadTopTags('/home/yuan/lab/duration/data/3_2011_tag_tweets/tags.txt');
+    outfile = file('data/event/3_2011_tags/truth_cluster.txt', 'w')
+    for tag in tags:
+        json.dump(tag, outfile);
+        outfile.write('\n')
+    outfile.close();
+    
+if __name__ == '__main__':
+    #global g_tag_flag;
+    #g_tag_flag = 0;
+    
+    #mapTermsMain();
+    #mapPhotoMain2();
+    #termTimeBinMain();
+    #mapTermsUSMain();
+    #termUserMain();
 
-#extract the time, co-occur, spatial, user features
-#extractFeatureMain();
+    #extract the time, co-occur, spatial, user features
+    #extractFeatureMain();
 
-#extract the time-location features
-extractTLFeatureMain();
+    #extract the time-location features
+    #extractTLFeatureMain();
+
+    #extract the time-location feature  day+geoloc
+    #extractTGeoFeatureMain()
+
+    #extract the tag features
+    extractTagFeatureMain()

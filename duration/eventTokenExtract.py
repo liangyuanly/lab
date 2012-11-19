@@ -52,6 +52,53 @@ def ireneEventExtract():
     filterTweetsByWeiTT(year, month, day_from, day_to, tokens, out_fold);
     return 0;
 
+def NZeqWorldEventExtract():
+    filename_10 = './data/earthquake_NZ/top15.txt'
+    #bb = getNZbb();
+    bb = getWorldbb(); 
+    year = 2011;
+    month = 2;
+    day_from = 20;
+    day_to = 29;
+    #use the selected tokens, bb, time to filter the tweets
+    tokens = loadTokenWei(filename_10);
+    out_fold = './data/earthquake_NZ/weiTTL/';
+    if not os.path.exists(out_fold):
+        os.makedirs(out_fold);
+  
+    filterTweetsByWeiTTL(bb, year, month, day_from, day_to, tokens, out_fold);
+
+#get the tweets contating spedific tags
+def worldTagTweetExtract():
+    filename_tag = './data/3_2011_tag_tweets/tags.txt'
+    bb = getWorldbb(); 
+    year = 2011;
+    month = 3;
+    day_from = 21;
+    day_to = 31;
+    #use the selected tokens, bb, time to filter the tweets
+    tags = loadTopTags(filename_tag);
+    out_fold = './data/3_2011_tag_tweets/TTag/';
+    if not os.path.exists(out_fold):
+        os.makedirs(out_fold);
+  
+    filterTweetsByTTag(bb, year, month, day_from, day_to, tags, out_fold);
+
+def jpeqWorldEventExtract():
+    filename_10 = './data/jpeq_world/sel_tokens.txt'
+    bb = getWorldbb(); 
+    year = 2011;
+    month = 3;
+    day_from = 10;
+    day_to = 30;
+    #use the selected tokens, bb, time to filter the tweets
+    tokens = loadTokenWei(filename_10);
+    out_fold = './data/jpeq_world/weiTTL/';
+    if not os.path.exists(out_fold):
+        os.makedirs(out_fold);
+  
+    filterTweetsByWeiTTL(bb, year, month, day_from, day_to, tokens, out_fold);
+
 def jpeqUSEventExtract():
     filename = './data/jpeq_us/query.txt';
     query = loadTerms(filename);
@@ -154,15 +201,17 @@ def jobsEventExtract():
     filterTweetsByWeiTTL(bb, year, month, day_from, day_to, tokens, out_fold);
 
 def JPEQJPExtract():
-    bb = getWorldbb();
+    bb = getJPbb();
     year = 2011;
     month = 3;
-    day_from = 1;
+    day_from = 10;
     day_to = 30;
     outfilename_100 = './data/jpeq_jp/top100.txt'
     #use the selected tokens, bb, time to filter the tweets
     tokens = loadTokenCluster(outfilename_100, 'utf-8');
-    out_fold = './data/jpeq_jp/tweet/';
+    #tweet2 folder is the world wide
+    #tweet_jp folder is the jp 
+    out_fold = './data/jpeq_jp/tweet_jp/';
     if not os.path.exists(out_fold):
         os.makedirs(out_fold);
     filterTweetsByTTL(bb, year, month, day_from, day_to, tokens, out_fold);
@@ -330,7 +379,9 @@ def filterMain():
 #eventTokenExtractMain('arab_spring_late');
 #filterMain();
 
-JPEQJPExtract();
+#worldTagTweetExtract();
+NZeqWorldEventExtract();
+#JPEQJPExtract();
 #ireneEventExtract();
 #jpeqUSEventExtract();
 #konyEventExtract();
@@ -338,3 +389,5 @@ JPEQJPExtract();
 #jobsEventExtract();
 #linsanityEventExtract();
 #electionEventExtract();
+
+#jpeqWorldEventExtract()

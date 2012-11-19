@@ -22,7 +22,7 @@ from nltk.tokenize.api import *
 from tinysegmenter import *
 from settings import Settings
 from operator import itemgetter
-from Utility import *
+#from Utility import *
 import random
 from utility.dijkstra import *
 from utility.MST import *
