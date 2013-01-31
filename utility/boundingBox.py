@@ -58,7 +58,7 @@ def getIndexForbb(lati, longi, bb, lat_num, lon_num):
         lati_index = math.floor((lati - lati_down)/lati_step);
         longi_index = math.floor((longi - longi_left)/longi_step);
     
-    return lati_index, longi_index;
+    return int(lati_index), int(longi_index);
 
 def getbbtt(event):
     if event == 'NBA':

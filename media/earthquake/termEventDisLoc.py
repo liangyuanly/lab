@@ -1,8 +1,8 @@
 #!/usr/bin/pythoni
 # -*- coding: utf-8 -*-
-from matplotlib.patches import Polygon 
-from mpl_toolkits.basemap import Basemap
-import matplotlib.pyplot as plt
+#from matplotlib.patches import Polygon 
+#from mpl_toolkits.basemap import Basemap
+#import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
@@ -26,10 +26,11 @@ from kmeans import *
 from evaluate import *
 from graphOfTokens import disOfTerm, disOfTimeGeo, transPoints, disOfTemp2, transTimePoints, transPoints2 
 from termEventCommon import *
-from cluster import ClusterUsingLocFilter
+#from cluster import ClusterUsingLocFilter
 from disMeasure import DisCalculator
 
 def plotOnJPMap(points, title, show = 1):
+    return;
     fig = plt.figure(); 
     m = Basemap(llcrnrlon=129.5, llcrnrlat=30.4, urcrnrlon=147.0, urcrnrlat=45.4, projection='cyl', lat_1=10, lat_2=50, lon_0=138, resolution='l', area_thresh=10000)
 
@@ -52,6 +53,8 @@ def plotOnJPMap(points, title, show = 1):
         plt.show();
 
 def plotOnUSMap(points, title, show):
+    return;
+
     m = Basemap(llcrnrlon=-125.5, llcrnrlat=22, urcrnrlon=-69.3, urcrnrlat=50, projection='cyl', lat_1=10, lat_2=50, lon_0=98, resolution='l', area_thresh=10000)
     
     m.drawmapboundary(fill_color='#85A6D9')
@@ -130,7 +133,7 @@ def plotThetaLoc(theta_prob, name):
 #use the term distribution*theta distribution
 def getWordThetaProb(term_time, theta_dis, clusters):
     
-    return averageFilter(term_time, theta_dis, clusters)
+    #return averageFilter(term_time, theta_dis, clusters)
     
     word_theta_prob = {};
     term_count = 0;
@@ -417,13 +420,21 @@ def postIterLoc(term_locs, pre_clusters, centers, cluster_num, truth_file, out_t
     ret_acc = 0;
     plotThetaLoc(theta_prob, 'init');
     
+    print 'init theta prob over';
+
     while isChanging:
         ############use the probability window
         term_new_locs = getWordThetaProb(term_locs, theta_prob, pre_clusters);
+        
+        print 'iter=', iter, 'new term loc cal over';
+
         #dis_matrix = disOfTimeGeo(term_new_locs, 'abs');
         dis_matrix = disCalcultor.disOfGeo(term_new_locs);
+        print 'iter=', iter, 'new loc dis cal over';
+        
         clusters, centers = kmeansTokensWrap(dis_matrix, cluster_num, centers)
-
+        print 'iter=', iter, 'cluster over';
+        
         puri, accu = purityWrap(clusters, truth_file, format, dis_matrix)
         print 'iter=', iter, 'the post prob window puri=', puri;
         #ret_puri = puri;
@@ -453,7 +464,8 @@ def postIterLoc(term_locs, pre_clusters, centers, cluster_num, truth_file, out_t
 
         iter += 1;
         
-        print 'post'
+        print 'post', 'iter=', iter, 'theta prov cal over';
+
     return ret_puri, ret_acc;
 
 
@@ -527,12 +539,14 @@ def windowIterLoc(term_locs, pre_cluster, centers, cluster_num, truth_file, out_
     ret_puri = 0;
     ret_accu = 0;
     theta_prob = getThetaTimeProb2(pre_cluster, term_locs, cluster_num)
-    
-    plotThetaLoc(theta_prob, 'init');
+    #theta_prob = getThetaTimeLoc(pre_cluster, term_locs, cluster_num);
+
+    #plotThetaLoc(theta_prob, 'init');
     while isChanging:
         #############use the square window
-        square_window, gauss_window = locWindowFilter(theta_prob);
-
+        #square_window, gauss_window = tmpLocWindowFilter(theta_prob);
+        square_window, gauss_window = getThetaLocWindow(theta_prob);
+        
         ############use the probability window
         #get the new theta prob
         if window_type == 'square':
@@ -571,7 +585,7 @@ def windowIterLoc(term_locs, pre_cluster, centers, cluster_num, truth_file, out_
         json.dump(theta_prob, out_theta_file);
         out_theta_file.write('\n');
         
-        plotThetaLoc(theta_prob, 'window' + str(iter));
+        #plotThetaLoc(theta_prob, 'window' + str(iter));
 
         iter += 1;
     
@@ -689,7 +703,6 @@ def iterThetaWordLoc(event, cluster_num, format, use_kernel, map, bydegree):
     theta_prob = getThetaTimeProb2(true_clusters, term_locs, cluster_num)
     plotThetaLoc(theta_prob, 'Ground truth');
     
-
     theta_file = 'data/event/' + event + '/iter_theta_prob.txt';
     out_theta_file = file(theta_file, 'w');
     
@@ -697,18 +710,13 @@ def iterThetaWordLoc(event, cluster_num, format, use_kernel, map, bydegree):
     pre_clusters, centers = initClusters(event, cluster_num, format, 'coocur', label);
     #json.dump(theta_prob, out_theta_file);
     #out_theta_file.write('\n');
-    
-    #not implement yet
-    #gauss probability iteration
-    cluster_temp = deepcopy(pre_clusters);
-    centers_temp = deepcopy(centers);
-    out_puri['spatial_square'], out_puri['spatial_sqaure_accuracy'] = windowIterLoc(term_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'square')
  
-    cluster_temp = deepcopy(pre_clusters);
-    centers_temp = deepcopy(centers);
-    out_puri['spatial_gauss'], out_puri['spatial_gauss_accuracy'] = windowIterLoc(term_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'gauss')
-    
-    return out_puri;
+    print 'init cluster over';
+
+    if use_kernel:
+        term_locs = meanLocFilter(term_locs)
+
+    print 'mean loc filter over';
 
     #use the geo-spatial distance to cluster, for comparison
     #dis_matrix = disOfTerm(term_locs, 'abs')
@@ -725,7 +733,22 @@ def iterThetaWordLoc(event, cluster_num, format, use_kernel, map, bydegree):
     #theta_prob_temp = deepcopy(theta_prob);
     cluster_temp = deepcopy(pre_clusters);
     centers_temp = deepcopy(centers);
+    print 'begin postIter';
+
     out_puri['spatial_post'], out_puri['spatial_post_accuracy'] = postIterLoc(term_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file)
+    
+    return out_puri;
+
+
+    #not implement yet
+    #gauss probability iteration
+    cluster_temp = deepcopy(pre_clusters);
+    centers_temp = deepcopy(centers);
+    out_puri['spatial_square'], out_puri['spatial_sqaure_accuracy'] = windowIterLoc(term_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'square')
+ 
+    cluster_temp = deepcopy(pre_clusters);
+    centers_temp = deepcopy(centers);
+    out_puri['spatial_gauss'], out_puri['spatial_gauss_accuracy'] = windowIterLoc(term_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'gauss')
     
     return out_puri;
 
@@ -776,7 +799,7 @@ def termThetaCluterMain(event, cluster_num, bb, use_kernel, byDegree):
     for key in final_puri:
         final_puri[key] /= iter_num;
     
-    filename = 'data/event/' + event + '/result2.txt';
+    filename = 'data/event/' + event + '/result_loc.txt';
     outfile = file(filename, 'w');
     json.dump(final_puri, outfile);
     outfile.write('\n');
@@ -784,13 +807,13 @@ def termThetaCluterMain(event, cluster_num, bb, use_kernel, byDegree):
 
 def eventMain():
     format = 'utf-8'
-    use_kernel = 0;
+    use_kernel = 1;
     byDegree = 0;
 
-    event = 'irene_overall'
-    cluster_num = 3;
-    bb = getUSbb()
-    termThetaCluterMain(event, cluster_num, bb, use_kernel, byDegree);
+    #event = 'irene_overall'
+    #cluster_num = 3;
+    #bb = getUSbb()
+    #termThetaCluterMain(event, cluster_num, bb, use_kernel, byDegree);
 
     event = '3_2011_events'
     cluster_num = 5;

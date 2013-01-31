@@ -362,6 +362,7 @@ def calRelevance(sel_tokens, rel_matrix, tweets):
     #count = 0;
     global g_tag_flag;
     print g_tag_flag
+    
     for tweet in tweets:
         #count = count + 1;
         #if count > 100:
@@ -383,20 +384,23 @@ def calRelevance(sel_tokens, rel_matrix, tweets):
                 rel_matrix[token][token2] = rel_matrix[token][token2] + 1;
                 rel_matrix[token2][token] = rel_matrix[token2][token] + 1;
 
+#from the simlarity to get the distance
 def reverse(dis_matrix):
+    term_count = {};
+    for key in dis_matrix.keys():
+        term_count[key] = 0;
+        for key2 in dis_matrix[key]:
+            term_count[key] += dis_matrix[key][key2];
+
     for key in dis_matrix.keys():
         max_freq = 0;
-        for key2 in dis_matrix[key]:
-            if dis_matrix[key][key2] > max_freq:
-                max_freq = dis_matrix[key][key2];
-
         for key2 in dis_matrix[key].keys():
-            if dis_matrix[key][key2] != 0:
-                dis_matrix[key][key2] = max_freq/float(dis_matrix[key][key2]);
+            dis_matrix[key][key2] = (1 + term_count[key] + term_count[key2])/float((1+dis_matrix[key][key2]));
 
 #extract the coocurence 
 def relevanceOfToken(tokens, tweet_fold, isTag=0):
     matrix = {};
+    #token_count = {};
     for token in tokens:
         if token == 'totaltokennum':
             continue;
@@ -595,12 +599,15 @@ def extractFeatureFunc1(event):
     tokens = loadTerms(truthfile);
     
     #extract the co-ocureence feature
-    outfilename = fold + 'term_coocurence.txt';
+    outfilename = fold + 'term_coocurence2.txt';
     matrix = relevanceOfToken(tokens, tweet_fold);
     
     outfile = file(outfilename, 'w');
     json.dump(matrix, outfile);
     outfile.close();
+
+    #test
+    return;
 
     #extract the time bin feature
     time_bin = timeFeature(tokens, tt, tweet_fold);
@@ -627,7 +634,7 @@ def extractFeatureFunc1(event):
 
 def extractFeatureFunc(tokens, bb, tt, tweet_fold, fold):
     #extract the co-ocureence feature
-    outfilename = fold + 'term_coocurence.txt';
+    outfilename = fold + 'term_coocurence2.txt';
     matrix = relevanceOfToken(tokens, tweet_fold);
     
     outfile = file(outfilename, 'w');
@@ -728,13 +735,12 @@ def extractTagFeatureMain():
     extractFeatureFunc11(bb, tt, tags, tweet_fold, out_folder, 1);
  
 def extractFeatureMain():
-    event = 'jpeq_jp';
-    extractFeatureFunc1(event);
-    return;
+    #event = 'jpeq_jp';
+    #extractFeatureFunc1(event);
 
-    event = 'irene_overall';
-    extractFeatureFunc1(event);
-    return;
+    #event = 'irene_overall';
+    #extractFeatureFunc1(event);
+    #return;
 
 #    event = 'NBA';
 #    extractFeatureFunc1(event);
@@ -763,8 +769,8 @@ def transTags():
     outfile.close();
     
 if __name__ == '__main__':
-    #global g_tag_flag;
-    #g_tag_flag = 0;
+    global g_tag_flag;
+    g_tag_flag = 0;
     
     #mapTermsMain();
     #mapPhotoMain2();
@@ -773,7 +779,7 @@ if __name__ == '__main__':
     #termUserMain();
 
     #extract the time, co-occur, spatial, user features
-    #extractFeatureMain();
+    extractFeatureMain();
 
     #extract the time-location features
     #extractTLFeatureMain();
@@ -782,4 +788,4 @@ if __name__ == '__main__':
     #extractTGeoFeatureMain()
 
     #extract the tag features
-    extractTagFeatureMain()
+    #extractTagFeatureMain()

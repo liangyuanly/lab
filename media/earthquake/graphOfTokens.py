@@ -27,6 +27,7 @@ from boundingBox import *
 from loadFile import *
 from sklearn import neighbors, datasets
 from kmeans import kmeansTokens
+from common import normalizeDic
 
 def disOfDic(dic1, dic2, method = 'abs'):
     dis = 0.0;
@@ -506,7 +507,7 @@ def getIndexForUS(lati, longi):
         lati_index = math.floor((lati - lati_down)/lati_step);
         longi_index = math.floor((longi - longi_left)/longi_step);
     
-    return lati_index, longi_index;
+    return int(lati_index), int(longi_index);
 
 def getIndexForJP(lati, longi):
     # Japan
@@ -566,14 +567,15 @@ def transTimePoints(term_time_loc, useKernel, bb, useDegree=0, grid_count=100):
                 log = loc[1];
                 lati_index, longi_index = getIndexForbb(lat, log, bb, lat_num, lon_num);
                 if lati_index > 0 and longi_index > 0:
-                    key = lati_index * lat_num + longi_index;
+                    #key = lati_index * lat_num + longi_index;
+                    key = str(lati_index) + '_' + str(longi_index);
                     if key not in matrix.keys():
                         matrix[key] = 0;
 
                     matrix[key] += 1;
 
-            if useKernel == 1:
-                kernelGeoDis(matrix);
+            #if useKernel == 1:
+            #    kernelGeoDis(matrix);
 
     #        norMatrix(matrix);
     return term_matrix;
@@ -600,6 +602,32 @@ def transPoints(term_loc, useKernel, bb, useDegree=0, grid_count=100):
 
         norMatrix(matrix);
         term_matrix[term] = matrix;
+    return term_matrix;
+
+#use 1-dimension list but not matrix to stand for locs
+def transPoints2(term_loc, useKernel, bb, useDegree=0, grid_count=100):
+    lat_num = grid_count;
+    lon_num = grid_count;
+    if useDegree == 1:
+        lat_num = math.ceil(bb[1] - bb[0]);
+        lon_num = math.ceil(bb[3] - bb[2]);
+
+    term_matrix = {};
+    for term, locs in term_loc.iteritems():
+        loc_list = {};
+        for loc in locs:
+            lat = loc[0];
+            log = loc[1];
+            lati_index, longi_index = getIndexForbb(lat, log, bb, lat_num, lon_num);
+            if lati_index >= 0 and longi_index >= 0:
+                key = str(lati_index) + '_' + str(longi_index);
+                if key not in loc_list.keys():
+                    loc_list[key] = 0;
+                loc_list[key] += 1;
+ 
+        normalizeDic(loc_list)
+        term_matrix[term] = loc_list;
+    
     return term_matrix;
 
 def disOfTimeLocsList(time_locs1, time_locs2, method):

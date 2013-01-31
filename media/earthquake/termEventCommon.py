@@ -7,12 +7,14 @@ import copy
 from copy import deepcopy
 from scipy import *
 import random
+from evaluate import purity
 
 sys.path.append('../../utility/')
 from boundingBox import *
 from loadFile import *
 from kmeans import *
 from disMeasure import DisCalculator
+
 
 def gaussProb(model, x):
     mu = model[0];
@@ -28,6 +30,17 @@ def normalizeDic(dic):
     if sum > 0:
         for key, freq in dic.iteritems():
             dic[key] = freq/sum;
+
+def normTimeLocs(time_locs):
+    sum = 0.0;
+    for time, locs in time_locs.iteritems():
+        for loc_index, fre in locs.iteritems():
+            sum += fre;
+
+    for time, locs in time_locs.iteritems():
+        for loc_index, fre in locs.iteritems():
+            if sum > 0:
+                locs[loc_index] /= sum;
 
 def meanFilter(term_prob):
     new_term_prob = copy.copydeep(term_prob);
@@ -47,6 +60,17 @@ def disMatrixFilter(dis_matrix, words):
                 del dis_matrix[key1][key2];
 
     return dis_matrix
+
+def normTimeLocs(time_locs):
+    sum = 0.0;
+    for time, locs in time_locs.iteritems():
+        for loc_index, fre in locs.iteritems():
+            sum += fre;
+
+    for time, locs in time_locs.iteritems():
+        for loc_index, fre in locs.iteritems():
+            if sum > 0:
+                locs[loc_index] /= sum;
 
 def kmeansTokensWrap(dis_matrix, cluster_num, centroid):
     clusters, centers = kmeansTokens(dis_matrix, cluster_num, centroid);
@@ -183,7 +207,7 @@ def getThetaTimeProb2(clusters, term_one_place_time, event_num):
                 continue;
             time_bins = term_one_place_time[token];
             for time, freq in time_bins.iteritems():
-                time = int(time);
+                #time = int(time);
         
                 if time not in cluster_fre[cluster_idx].keys():
                     cluster_fre[cluster_idx][time] = 0.0;
@@ -197,6 +221,34 @@ def getThetaTimeProb2(clusters, term_one_place_time, event_num):
 
     return prob_time_theta;
 
+#this function is used to calculate the p(theta|t) p(t|theta)
+def getThetaTimeLocProb(clusters, term_time_loc, event_num):
+    cluster_fre = {};
+    #event_num = len(clusters)       
+    for i in range(1, event_num+1):
+        cluster_fre[i] = {};
+
+    for cluster_idx, cluster in clusters.iteritems():
+        for token in cluster:
+            if token not in term_time_loc.keys():
+                continue;
+        
+            time_loc_bin = term_time_loc[token];
+            for time, loc_bin in time_loc_bin.iteritems():  
+                time = int(time);
+                if time not in cluster_fre[cluster_idx].keys():
+                    cluster_fre[cluster_idx][time] = {};
+
+                for loc, freq in loc_bin.iteritems():
+                    if loc not in cluster_fre[cluster_idx][time]:
+                        cluster_fre[cluster_idx][time][loc] = 0;
+
+                    cluster_fre[cluster_idx][time][loc] += freq;
+   
+    for clustetr_idx, time_locs in cluster_fre.iteritems():
+        normTimeLocs(time_locs);  #notice: the time_fre is changed in the normalizeDic function
+
+    return cluster_fre;
 
 #this function is used to calculate the p(theta|t) p(t|theta)
 def getWeightThetaTimeProb(clusters, centers, term_one_place_time, event_num):
@@ -272,28 +324,28 @@ def getThetaTimeProb(clusters, term_one_place_time, event_num):
     for i in range(1, event_num+1):
         cluster_fre[i] = {};
 
+    #for cluster_idx, cluster in clusters.iteritems():
+    #    for token in cluster:
+    #        if token not in term_one_place_time:
+    #            continue;
+    #        time_bins = term_one_place_time[token];
+    #        for time, freq in time_bins.iteritems():
+    #            time = int(time);
+    #            if time > max_time:
+    #                max_time = time;
+
+    #max_time += 1;
+
     for cluster_idx, cluster in clusters.iteritems():
+    #    for i in range(0, max_time):
+    #        cluster_fre[cluster_idx][i] = 0;
+
         for token in cluster:
             if token not in term_one_place_time:
                 continue;
             time_bins = term_one_place_time[token];
             for time, freq in time_bins.iteritems():
-                time = int(time);
-                if time > max_time:
-                    max_time = time;
-
-    max_time += 1;
-
-    for cluster_idx, cluster in clusters.iteritems():
-        for i in range(0, max_time):
-            cluster_fre[cluster_idx][i] = 0;
-
-        for token in cluster:
-            if token not in term_one_place_time:
-                continue;
-            time_bins = term_one_place_time[token];
-            for time, freq in time_bins.iteritems():
-                time = int(time)
+    #            time = int(time)
                 cluster_fre[cluster_idx][time] = cluster_fre[cluster_idx][time] + freq;
 
     #cal p(theta|t)
@@ -417,5 +469,70 @@ def getThetaTimeLocationWindow(cluster_fre):
         all_square_window.update(square_window)
 
     return all_square_window, all_gauss_window
+
+def Moment(theta_prob):
+    prob = 0;
+    max_time = getMaxKey(theta_prob);
+    time_arr = np.ones(max_time+1);
+    for theta, time_bin in theta_prob.iteritems():
+        for time, fre in time_bin.iteritems():
+            time = int(time);
+            time_arr[time] *= fre;
+
+    for fre in time_arr:
+        prob += fre;
+    return prob;
+
+def isClusterChange(pre_clusters, clusters):
+    ###########control when to exit the iteration
+    #if not change a lot compare with the previous cluster
+    cluster_label = transClassLabel(pre_clusters)
+    puri = purity(cluster_label, clusters); 
+    
+    if puri > 0.99:
+        return False;
+    return True;
+
+def testGoal(pre_theta_prob, cur_theta_prob, pre_cluster, cur_cluster):
+    insection = 0;
+    #mo1 = Moment(pre_theta_prob);
+    #mo2 = Moment(cur_theta_prob);
+    #div1 = KLDivergence(pre_theta_prob);
+    #div2 = KLDivergence(cur_theta_prob);
+    #print 'mo1, mo2, div1, div2=', mo1, mo2, div1, div2;
+    if not isClusterChange(pre_cluster, cur_cluster):
+    #if div2 > 6.7 or not isClusterChange(pre_cluster, cur_cluster):
+        return True;
+    
+    return False;
+
+def KLDivergence(theta_prob):
+    div = 0;
+    for theta, time_bin in theta_prob.iteritems():
+        for theta2, time_bin2 in theta_prob.iteritems():
+            if theta == theta2:
+                continue;
+
+            div += KL(time_bin, time_bin2);
+    return div;
+
+def getMaxKey(theta_prob):
+    max_value = 0;
+    for theta, time_bin in theta_prob.iteritems():
+        time_list = time_bin.keys();
+        time_list = map(int, time_list);
+        max_time = max(time_list);
+        if max_time > max_value:
+            max_value = max_time;
+    
+    return max_value;
+
+def transClassLabel(clusters):
+    cluster_label = {};
+    for index, cluster in clusters.iteritems():
+        for term in cluster:
+            cluster_label[term] = index;
+
+    return cluster_label;
 
 

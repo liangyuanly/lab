@@ -98,10 +98,132 @@ class DisCalculator:
                         graph.add_edge(term1, term2, {'w': 1/dis})
                         #graph.add_edge(term1.encode('utf-8'), term2.encode('utf-8'), {'w': 1/dis})
                 else:
-                    graph.add_edge(term1, term2, {'w': 1000})
+                    graph.add_edge(term1, term2, {'w': 0})
                     #graph.add_edge(term1.encode('utf-8'), term2.encode('utf-8'), {'w': 1000})
         
         return graph;
+    
+    @staticmethod
+    def disOfTimeLocsList(time_locs1, time_locs2, method):
+        dis = 0.0;
+        for time1, locs1 in time_locs1.iteritems():
+            if time1 in time_locs2.keys():
+                locs2 = time_locs2[time1];
+            else:
+                locs2 = {};
+            for loc_index, fre in locs1.iteritems():
+                if loc_index in locs2.keys():
+                    dis += abs(fre-locs2[loc_index]);
+                else:
+                    dis += fre;
+        
+        for time2, locs2 in time_locs2.iteritems():
+            if time2 in time_locs1.keys():
+                locs1 = time_locs1[time1];
+            else:
+                locs1 = {};
+            for loc_index, fre in locs2.iteritems():
+                if loc_index in locs1.keys(): #already calculated
+                    continue;
+                else:
+                    dis += abs(fre-locs2[loc_index]);
+        return dis;
+
+    @staticmethod
+    def disOfTimeGeo(term_matrix, method='abs'):
+        term_num = len(term_matrix);
+
+        dis_matrix = {};
+        for term, time_locs in term_matrix.iteritems():
+            dis = 0;
+            dis_matrix[term] = {};
+            for term2, time_locs2 in term_matrix.iteritems():
+                if term2 == term:
+                    dis_matrix[term][term] = 0;
+                    continue;
+                
+                dis = DisCalculator.disOfTimeLocsList(time_locs, time_locs2, 'abs')  
+                dis_matrix[term][term2] = dis;
+                
+            count = 0;
+            for term2, dis in sorted(dis_matrix[term].iteritems(), key=lambda (k,v):(v,k)):
+                #print term, term2, dis;
+                count = count + 1;
+                if count > 10:
+                    break;
+
+        return dis_matrix;
+    
+#    @staticmethod
+#    def disOfOccur(term_occ):
+#        #cal the total count of a term happened with other terms
+#        count_term = {};
+#        for term1 in term_occ:
+#            count = 0;
+#            for term2 in term_occ[term1]:
+#                count += term_occ[term1][term2];
+#
+#            count_term[term1] = count;
+#
+#        sim_matrix = {};
+#        for term1 in term_occ:
+#            sim_matrix[term1] = {};
+#            for term2 in term_occ[term1]:
+#                #normalize the term count to get the distance based on co-occur
+#                dis1 = term_occ[term1][term2];
+#                
+#                #wrong name, dis1 actually is the similarity
+#                if count_term[term1] < count_term[term2]:
+#                    dis1 /= count_term[term1] + 1;
+#                else:
+#                    dis1 /= count_term[term2] + 1;
+#            
+#            sim_matrix[term1][term2] = dis1;
+#
+#        #the similarity matrix
+#        return sim_matrix;
+    
+    @staticmethod
+    def disOfOccTimeGeo(sim_occ, dis_tmp, dis_geo, terms):
+        dis_matrix = {};
+        for term1 in terms:
+            dis_matrix[term1] = {};
+            for term2 in terms:
+                if term1 == term2:
+                    dis_matrix[term1][term2] = 0;
+                    continue;
+               
+                sim1 = 100000; #actualy should call it dis1
+                if term1 in sim_occ and term2 in sim_occ[term1]:
+                    sim1 = sim_occ[term1][term2];
+                else:
+                    if term2 in sim_occ and term1 in sim_occ[term2]:
+                        sim1 = sim_occ[term2][term1];
+                
+                #get the temporal distance
+                dis2 = 10000;
+                if term1 in dis_tmp and term2 in dis_tmp[term1]:
+                    dis2 = dis_tmp[term1][term2];
+                else:
+                    if term2 in dis_tmp and term1 in dis_tmp[term2]:
+                        dis2 = dis_tmp[term2][term1];
+
+                #get the spatial distance
+                dis3 = 10000;
+                if term1 in dis_geo and term2 in dis_geo[term1]:
+                    dis3 = dis_geo[term1][term2];
+                else:
+                    if term2 in dis_geo and term1 in dis_geo[term2]:
+                        dis3 = dis_geo[term2][term1];
+
+                #use the similarity 
+                #new_dis = (dis2 + dis3) / (1+sim1);
+    
+                #use the distance
+                new_dis = sim1*(dis2 + dis3);
+                dis_matrix[term1][term2] = new_dis;
+
+        return dis_matrix;
 
     @staticmethod
     def disOfGeo(term_loc_bin):
@@ -149,7 +271,7 @@ class DisCalculator:
                         graph.add_edge(term1, term2, {'w': 1/dis})
                         #graph.add_edge(term1.encode('utf-8'), term2.encode('utf-8'), {'w': 1/dis})
                 else:
-                    graph.add_edge(term1, term2, {'w': 1000})
+                    graph.add_edge(term1, term2, {'w': 0})
                     #graph.add_edge(term1.encode('utf-8'), term2.encode('utf-8'), {'w': 1000})
         
         return graph;

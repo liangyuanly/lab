@@ -15,7 +15,8 @@ from kmeans import *
 from evaluate import *
 from graphOfTokens import disOfTerm, disOfTimeGeo, transPoints, disOfTemp2, transTimePoints 
 from termEventCommon import *
-from filterType import meanFilterTimeLocs
+#from filterType import meanFilterTimeLocs
+from filterType import *
 
 def normMatrix(matrix):
     sum = 0.0
@@ -69,7 +70,7 @@ def indexKey(term_time_locs):
                 min_datetime = time;
     
     for term, time_locs in term_time_locs.iteritems():
-        print term, time_locs.keys()
+        #print term, time_locs.keys()
         for time in time_locs.keys():
             date_time = strTimeToDatetime(time, '%Y-%m-%d');
             day = (date_time - min_datetime).days;
@@ -103,17 +104,6 @@ def initClusters(event, cluster_num, format, init_method, sel_terms):
         index += 1;
 
     return new_cluster, centers
-
-def normTimeLocs(time_locs):
-    sum = 0.0;
-    for time, locs in time_locs.iteritems():
-        for loc_index, fre in locs.iteritems():
-            sum += fre;
-
-    for time, locs in time_locs.iteritems():
-        for loc_index, fre in locs.iteritems():
-            if sum > 0:
-                locs[loc_index] /= sum;
 
 ##this function is used to calculate the p(theta|t, l) p(t, l|theta)
 #def getTimeLocThetaProb(clusters, term_time_locs, event_num):
@@ -257,6 +247,22 @@ def wordThetaProb(term_locs, theta_prob, theta_num):
     return word_theta_prob;
 
 #the term_time_locs changes when this function is called
+def getWordTimeLocs2(term_time_locs_in, theta_prob, clusters):
+    term_time_locs = deepcopy(term_time_locs_in)
+    for cluster_index, cluster in clusters.iteritems():
+        for term in cluster:
+            time_locs = term_time_locs[term];
+            #use the time window
+            for time, locs in time_locs.iteritems():
+                prob_loc = theta_prob[cluster_index][time];
+                for loc_index in locs:
+                    prob = prob_loc[loc_index];
+                    locs[loc_index] *= prob
+
+            normTimeLocs(time_locs);
+    return term_time_locs
+
+#the term_time_locs changes when this function is called
 def getWordTimeLocs(term_time_locs_in, theta_prob, clusters):
 
     #return meanFilterTimeLocs(term_time_locs_in, clusters)
@@ -275,14 +281,18 @@ def getWordTimeLocs(term_time_locs_in, theta_prob, clusters):
             normTimeLocs(time_locs);
     return term_time_locs
 
+
 def postIter(term_time_locs, pre_clusters, centers, cluster_num, truth_file, out_theta_file):
     isChanging = True;
     pre_puri = 0;
     iter = 1;
     
     #use the co-occur cluster the gen the theta prob
-    term_day_time = getTimeProbFromTimeLoc(term_time_locs)
-    theta_prob = getThetaTimeProb2(pre_clusters, term_day_time, cluster_num)
+    #term_day_time = getTimeProbFromTimeLoc(term_time_locs)
+    #theta_prob = getThetaTimeProb2(pre_clusters, term_day_time, cluster_num)
+    theta_prob = getThetaTimeLocProb(pre_clusters, term_time_locs, cluster_num);
+    print 'theta prob init over'
+    
     ret_puri = 0;
     ret_accu = 0;
     while isChanging:
@@ -292,11 +302,14 @@ def postIter(term_time_locs, pre_clusters, centers, cluster_num, truth_file, out
 
         #use previous cluster lable to re-calculate the distance
         #word_locs_dis = getNewWordDis(word_theta_prob, pre_clusters)
-        word_time_locs =  getWordTimeLocs(term_time_locs, theta_prob, pre_clusters);
+        word_time_locs =  getWordTimeLocs2(term_time_locs, theta_prob, pre_clusters);
+        print 'iter=', iter, 'new time locs cal over'
 
         dis_matrix = disOfTimeGeo(word_time_locs, 'abs');
+        print 'iter=', iter, 'new dis matrix cal over'
         clusters, centers = kmeansTokensWrap(dis_matrix, cluster_num, centers)
-        
+        print 'iter=', iter, 'cluster over'
+
         puri,accu = purityWrap(clusters, truth_file, format, dis_matrix)
         print 'iter=', iter, 'the post prob window puri=, accu', puri, accu;
         #ret_puri = puri;
@@ -307,7 +320,7 @@ def postIter(term_time_locs, pre_clusters, centers, cluster_num, truth_file, out
         temp_puri = purity(cluster_label, clusters);
         
         print 'not changing rate=', puri
-        if temp_puri >= 1 or iter >= 10:
+        if temp_puri >= 1 or iter >= 5:
             isChanging = 0;
             if iter == 1:
                 ret_puri = puri;
@@ -321,13 +334,15 @@ def postIter(term_time_locs, pre_clusters, centers, cluster_num, truth_file, out
         #print clusters;
        
         ###############re-calculate the new theta prob
-        theta_prob = getThetaTimeProb2(clusters, term_day_time, cluster_num); 
+        theta_prob = getThetaTimeLocProb(clusters, term_time_locs, cluster_num); 
+        
         json.dump(theta_prob, out_theta_file);
         out_theta_file.write('\n');
         
         iter += 1;
         
-        print 'post'
+        print 'post', 'iter=', iter, 'new the prob cal over'
+
     return ret_puri, ret_accu;
 
 def genTestWindow(window):
@@ -346,25 +361,22 @@ def windowIter(term_time_locs, pre_cluster, centers, cluster_num, truth_file, ou
     iter = 1;
     ret_puri = 0;
     #use the co-occur cluster the gen the theta prob
-    term_day_time = getTimeProbFromTimeLoc(term_time_locs)
-    theta_prob = getThetaTimeProb2(pre_cluster, term_day_time, cluster_num)
+    #term_day_time = getTimeProbFromTimeLoc(term_time_locs)
+    
+    theta_prob = getThetaTimeLocProb(pre_cluster, term_time_locs, cluster_num)
     while isChanging:
         #############use the square window
-        square_window, gauss_window = getThetaTimeWindow(theta_prob);
-
-        square_window = genTestWindow(square_window);
-        gauss_window = genTestWindow(gauss_window);
+        square_window, gauss_window = tmpLocWindowFilter(theta_prob);
+        print square_window, '\n', gauss_window
 
         ############use the probability window
-        #get the new theta prob
-        #if window_type == 'gauss':
-        #    word_theta_prob = wordThetaProb(term_prob, gauss_window, cluster_num);
-        #if window_type == 'square':
-        #    word_theta_prob = wordThetaProb(term_prob, square_window, cluster_num);
-        
         #use previous cluster lable to re-calculate the distance
         #word_locs_dis = getNewWordDis(word_theta_prob, pre_cluster)
-        word_time_locs = getWordTimeLocs(term_time_locs, square_window, pre_cluster);
+        if window_type == 'gauss':
+            word_time_locs = getGaussFilterTmpLocDis(term_time_locs, gauss_window, pre_cluster);
+        else:
+            word_time_locs = getSquareFilterTmpLocDis(term_time_locs, square_window, pre_cluster);
+        
         dis_matrix = disOfTimeGeo(word_time_locs, 'abs');
         clusters, centers = kmeansTokensWrap(dis_matrix, cluster_num, centers)
         
@@ -377,7 +389,7 @@ def windowIter(term_time_locs, pre_cluster, centers, cluster_num, truth_file, ou
         temp_puri = purity(cluster_label, clusters);
         
         print 'not changing rate=', puri
-        if temp_puri >= 1 or iter >= 10:
+        if temp_puri >= 1 or iter >= 5:
             isChanging = 0;
             if iter == 1:
                 ret_puri = puri;
@@ -388,11 +400,10 @@ def windowIter(term_time_locs, pre_cluster, centers, cluster_num, truth_file, ou
             ret_puri = puri;
             ret_accu = accu;
 
-
         #print clusters;
        
         ###############calculate the new theta prob
-        theta_prob = getThetaTimeProb2(clusters, term_day_time, cluster_num); 
+        theta_prob = getThetaTimeLocProb(clusters, term_time_locs, cluster_num); 
         json.dump(theta_prob, out_theta_file);
         out_theta_file.write('\n');
         
@@ -435,6 +446,10 @@ def iterThetaWordLoc(event, cluster_num, format, use_kernel, map, bydegree):
     filterTerms(term_locs, label);
     term_time_locs = transTimePoints(term_locs, use_kernel, map, bydegree, 100);
     indexKey(term_time_locs);
+    
+    if use_kernel == 1:
+        meanFilterTimeLocs(term_time_locs);
+    print 'mean filter time locs over'
 
     theta_file = 'data/event/' + event + '/iter_theta_prob.txt';
     out_theta_file = file(theta_file, 'w');
@@ -452,7 +467,7 @@ def iterThetaWordLoc(event, cluster_num, format, use_kernel, map, bydegree):
     puri, accu = purityWrap(clusters_temp, truth_file, format, dis_matrix)
     out_puri['temp_spa'] = puri;
     out_puri['temp_spa_accuracy'] = accu;
-
+ 
     #post probability iteration
     #theta_prob_temp = deepcopy(theta_prob);
     cluster_temp = deepcopy(pre_clusters);
@@ -461,69 +476,49 @@ def iterThetaWordLoc(event, cluster_num, format, use_kernel, map, bydegree):
     
     return out_puri;
 
+    #sqaure probability iteration
+    cluster_temp = deepcopy(pre_clusters);
+    centers_temp = deepcopy(centers);
+    out_puri['temp_spa_square'], out_puri['temp_spa_square_accuracy'] = windowIter(term_time_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'square')
+ 
     #gauss probability iteration
     cluster_temp = deepcopy(pre_clusters);
     centers_temp = deepcopy(centers);
-    out_puri['temp_spa_window'], out_puri['temp_spa_window_accuracy'] = windowIter(term_time_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'square')
- 
-    filename = 'data/event/' + event + '/term_coocurence.txt'
-    infile = file(filename);
-    if format == 'utf-8':
-        dis_matrix = json.load(infile, format);
-    else:
-        dis_matrix = json.load(infile);
-    puri, accu = purityWrap(pre_clusters, truth_file, format, dis_matrix)
-    print 'co-occure purity=', puri
-    out_puri['coocur'] = puri;
-    out_puri['coocur_accuracy'] = accu;
-
-    #use the temporal distance to cluster, for comparison
-    dis_matrix = disOfTemp2(term_time, 'abs', 'hour')
-    center_temp = deepcopy(centers);
-    clusters_temp, center_temp = kmeansTokensWrap(dis_matrix, cluster_num, center_temp)
-    puri, accu = purityWrap(clusters_temp, truth_file, format, dis_matrix)
-    print 'temporal purity=', puri
-    out_puri['tempo'] = puri;
-    out_puri['tempo_accuracy'] = accu;
-
-    filename = 'data/event/' + event + '/term_location.txt';
-    infile = file(filename);
-    term_locs = json.load(infile);
-    infile.close();
-    filterTerms(term_locs, label);
-    term_locs = transPoints(term_locs, use_kernel, map, bydegree, 100);
-    #indexKey(term_time_locs);
-    #use the geo-spatial distance to cluster, for comparison
-    dis_matrix = disOfTerm(term_locs, 'abs')
-    center_temp = deepcopy(centers);
-    clusters_temp, center_temp = kmeansTokensWrap(dis_matrix, cluster_num, center_temp)
-    puri, accu = purityWrap(clusters_temp, truth_file, format, dis_matrix)
-    print 'spatial purity=', puri
-    out_puri['spatial'] = puri;
-    out_puri['spatial_accuracy'] = accu;
+    out_puri['temp_spa_gauss'], out_puri['temp_spa_gauss_accuracy'] = windowIter(term_time_locs, cluster_temp, centers_temp, cluster_num, truth_file, out_theta_file, 'gauss')
     
-   
     return out_puri;
 
 def termThetaCluterMain():
+    event = 'irene_overall'
+    cluster_num = 3;
+    bb = getUSbb()
+    use_kernel = 1;
+    termThetaCluster(event, cluster_num, bb, use_kernel);
+ 
+    event = '3_2011_events'
+    cluster_num = 5;
+    bb = getUSbb()
+    use_kernel = 1;
+    termThetaCluster(event, cluster_num, bb, use_kernel);
+ 
     event = '8_2011_events'
     cluster_num = 5;
-    
-    #event = 'jpeq_jp'
-    #cluster_num = 5;
-    
-    #event = 'irene_overall'
-    #cluster_num = 3;
-    
-    format = 'utf-8'
-    #format = 'unicode'
     bb = getUSbb()
-    #bb = getJPbb()
-    use_kernel = 0;
-    byDegree = 0;
+    use_kernel = 1;
+    termThetaCluster(event, cluster_num, bb, use_kernel);
+    
+    event = 'jpeq_jp'
+    cluster_num = 5;
+    bb = getJPbb()
+    use_kernel = 1;
+    termThetaCluster(event, cluster_num, bb, use_kernel);
 
+def termThetaCluster(event, cluster_num, bb, use_kernel):
+    byDegree = 0;
+    format = 'utf-8'
+    
     final_puri = {};
-    iter_num = 2;
+    iter_num = 1;
     for i in range(0, iter_num):
         puri = iterThetaWordLoc(event, cluster_num, format, use_kernel, bb, byDegree)
         
@@ -536,7 +531,7 @@ def termThetaCluterMain():
     for key in final_puri:
         final_puri[key] /= iter_num;
     
-    filename = 'data/event/' + event + '/result2.txt';
+    filename = 'data/event/' + event + '/result_tmp_loc.txt';
     outfile = file(filename, 'w');
     json.dump(final_puri, outfile);
     outfile.write('\n');
