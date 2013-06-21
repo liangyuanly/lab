@@ -1001,6 +1001,34 @@ def purityWrap(clusters, truth_file, format):
 #        iter += 1;
 #    
 #    out_theta_file.close();
+def innerProduct(in_term_prob, pre_cluster, theta_prob):
+    dis_matrix = {};
+
+    for cluster_id, cluster in pre_cluster.iteritems():
+        dis_matrix[cluster_id] = {};
+        event_prob = theta_prob[cluster_id];
+        for term in in_term_prob:
+            term_prob = in_term_prob[term];
+            dis = 0
+            for time, prob in term_prob.iteritems():
+                if time in event_prob:
+                    dis += event_prob[time] * prob
+
+            dis_matrix[cluster_id][term] = dis;
+
+    return dis_matrix
+
+
+def softIter(term_prob, pre_clusters, pre_theta_prob):
+    dis_matrix = innerProduct(term_prob, pre_clusters, pre_theta_prob)
+
+    for cluster_id, dis_arr in dis_matrix.iteritems():
+        count = 0;
+        for term, prob in sorted(dis_arr.iteritems(), key = lambda (k,v):(v,k), reverse = True):
+            print cluster_id, '\t', term, '\t', str(prob), '\n'
+            if count == 10:
+                break;
+            count += 1;
 
 def postIter(term_prob, term_one_place_prob, theta_time_prob, pre_theta_prob, pre_clusters, centers, cluster_num, truth_file, out_theta_file, dis_method, format, filter_type):
     global g_selected_words
@@ -1274,6 +1302,10 @@ def iterThetaWordTime(event, cluster_num, format, dis_method, filter_type):
     return metrics, accu_metrics
 
 def iterFunc(term_prob, term_one_place_prob, theta_time_prob, theta_prob, pre_clusters, centers, cluster_num, truth_file, out_theta_file, dis_method, format):
+    
+    softIter(term_prob, pre_clusters, theta_prob);
+    return;
+    
     metrics = {};
     accu_metrics = {};
     #post probability iteration

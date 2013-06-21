@@ -24,13 +24,41 @@ def centerTokens(dist_matrix, cluster_label):
         for token in tokens:
             total_dist = 0;
             for token2 in tokens:
-                total_dist = total_dist + dist_matrix[token][token2];
+                if token in dist_matrix and token2 in dist_matrix[token]:
+                    total_dist = total_dist + dist_matrix[token][token2];
+                else:
+                    total_dist += 2;
+
             if total_dist < min_dist:
                 min_dist = total_dist;
                 new_center = token;
         new_centroid.append(new_center);
 
     return new_centroid;
+
+def centerTokensDis(dist_matrix, cluster_label):
+    new_centroid = {};
+    aver_dis = {};
+    for center, tokens in cluster_label.iteritems():
+        min_dist = 1111111;
+        new_center = center;
+        for token in tokens:
+            total_dist = 0;
+            for token2 in tokens:
+                if token in dist_matrix and token2 in dist_matrix[token]:
+                    total_dist = total_dist + dist_matrix[token][token2];
+                else:
+                    total_dist += 2;
+
+            if total_dist < min_dist:
+                min_dist = total_dist;
+                new_center = token;
+                aver_dis[center] = total_dist/float(len(tokens));
+
+        new_centroid[center] = new_center;
+
+    return new_centroid, aver_dis;
+
 
 def hierachyClusterTokens(term_matrix, K):
     tokens = term_matrix.keys();
@@ -117,7 +145,7 @@ def kmeansTokens(matrix, K, init_centers=[]):
                 if center not in cluster:
                     cluster[center] = [];
 
-                if matrix[center][token] < min_dis:
+                if token in matrix[center] and matrix[center][token] < min_dis:
                     min_dis = matrix[center][token];
                     sel_label = center;
             cluster[sel_label].append(token);
@@ -132,3 +160,16 @@ def kmeansTokens(matrix, K, init_centers=[]):
         centroid = new_centroid;
     
     return cluster, centroid
+
+def kmeansTokensWrap(dis_matrix, cluster_num, centroid = []):
+    clusters, centers = kmeansTokens(dis_matrix, cluster_num, centroid);
+    
+    #change the key of the cluster
+    new_cluster = {};
+    index = 1;
+    for key, list in clusters.iteritems():
+        new_cluster[index] = list;
+        index += 1;
+    
+    return new_cluster, centers
+

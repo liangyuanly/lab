@@ -939,6 +939,9 @@ def disOfTemp2(term_time_bin, dis_method, dayorhour):
             dis = disOfDic(time_bin1, time_bin2);
             dis_matrix[term1][term2] = dis;
             dis_matrix[term2][term1] = dis;
+    
+    for term in dis_matrix:
+        normalizeDic(dis_matrix[term])
 
     return dis_matrix;
 

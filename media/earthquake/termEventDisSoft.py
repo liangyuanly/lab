@@ -88,16 +88,27 @@ def initNetwork(event, term_time, format, init_method, dis_method):
 def averageNetwork(dis_matrix, term_prob):
     new_matrix = {}
     for node, neighbors in dis_matrix.iteritems():
+        if node not in term_prob:
+            continue
+
         new_time_prob = deepcopy(term_prob[node])
-        for ne, dis in neighbors.iteritems():
+        count = 0;
+        for ne, dis in sorted(neighbors.iteritems(), key = lambda (k,v):(v,k)):
+            #if count > 5:
+            #    break;
+            #count += 1;
+
             if node == ne:
                 continue
+            if dis == 0:
+                continue
+
             prob = term_prob[ne]
             for time, fre in prob.iteritems():
                 if time not in new_time_prob:
-                    new_time_prob[time]  = fre * dis
+                    new_time_prob[time]  = fre * 1/dis
                 else:
-                    new_time_prob[time] += fre * dis
+                    new_time_prob[time] += fre * 1/dis
 
         normalizeDic(new_time_prob)
         new_matrix[node] = new_time_prob
@@ -131,15 +142,14 @@ def iterNetwork(coocc_dis, temp_prob, truth_file, cluster_num):
     metrics = {}
     accu_metrics = {}
 
-    temp_dis = disOfTemp2(temp_prob, 'manhattan', 'hour')
-    clusters, center_temp = kmeansTokensWrap(temp_dis, cluster_num, [])
-    #print clusters
-    puri = purityWrap(clusters, truth_file, 'utf-8')
-    metrics['temp'] = puri;
-    accu_metrics['temp'] = K_NN(temp_dis, truth_file, 1, 'utf-8')
+    #temp_dis = disOfTemp2(temp_prob, 'manhattan', 'hour')
+    #clusters, center_temp = kmeansTokensWrap(temp_dis, cluster_num, [])
+    #puri = purityWrap(clusters, truth_file, 'utf-8')
+    #metrics['temp'] = puri;
+    #accu_metrics['temp'] = K_NN(temp_dis, truth_file, 1, 'utf-8')
     
     net_dis = coocc_dis
-    while iter < 10:
+    while iter < 5:
         new_term_prob = averageNetwork(net_dis, temp_prob)
         temp_dis = disOfTemp2(new_term_prob, 'manhattan', 'hour')
         clusters, center_temp = kmeansTokensWrap(temp_dis, cluster_num, [])
@@ -153,7 +163,8 @@ def iterNetwork(coocc_dis, temp_prob, truth_file, cluster_num):
         print iter, metrics, accu_metrics
 
         iter += 1
-        
+    
+    return metrics['temp_net'], accu_metrics['temp_net']
 
 def iterThetaWordTime(event, cluster_num, format, dis_method, filter_type):
     #first use the co-occur as the metric to cluster tokens
@@ -195,7 +206,7 @@ def iterThetaWordTime(event, cluster_num, format, dis_method, filter_type):
     accu_metrics['cooccur'] = K_NN(coocc_dis, truth_file, 1, format)
 
     #iterative network update
-    iterNetwork(coocc_dis, term_prob, truth_file, cluster_num)
+    metrics['temp_net_iter'], accu_metrics['temp_net_iter'] = iterNetwork(coocc_dis, term_prob, truth_file, cluster_num)
 
 
     dis_matrix = initNetwork(event, term_prob, format, 'cooccur', 'manhattan')
@@ -225,7 +236,7 @@ def iterThetaWordTime(event, cluster_num, format, dis_method, filter_type):
 def termIterEventMain(event, cluster_num, format, filter_type):
     global g_selected_words
     
-    outfilename = 'data/event/' + event + '/results_temporal.txt';
+    outfilename = 'data/event/' + event + '/results_temporal2.txt';
     outfile = file(outfilename, 'w');
 
     truth_file = 'data/event/' + event + '/truth_cluster.txt';
@@ -240,7 +251,7 @@ def termIterEventMain(event, cluster_num, format, filter_type):
 
     metric_sum = {};
     accu_metric_sum = {};
-    iter_count = 10;
+    iter_count = 5;
     for i in range(0, iter_count):
         dis_method = 'abs'
         print 'hard cluster, Manhanttan distance!!!!!'
@@ -271,21 +282,23 @@ def eventMain():
     #filter_type = [];
     filter_type = ['mean'];
     format = 'utf-8'
+ 
+    event = '8_2011_events'
+    cluster_num = 5;
+    termIterEventMain(event, cluster_num, format, filter_type)
     
+    return
+   
     event = 'irene_overall'
     cluster_num = 3;
     termIterEventMain(event, cluster_num, format, filter_type)
- 
-    event = 'jpeq_jp'
-    cluster_num = 5;
-    termIterEventMain(event, cluster_num, format, filter_type)
-   
+    
     event = '3_2011_events'
     cluster_num = 5;
     termIterEventMain(event, cluster_num, format, filter_type)
     
-    event = '8_2011_events'
+    event = 'jpeq_jp'
     cluster_num = 5;
     termIterEventMain(event, cluster_num, format, filter_type)
-
+    
 eventMain()
