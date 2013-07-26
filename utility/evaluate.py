@@ -31,6 +31,107 @@ import sys
 from boundingBox import *
 from loadFile import *
 
+def compareList(list1, list2):
+    co = 0;
+    for it in list1:
+        if it in list2:
+            co +=1
+
+    return co
+
+def recallPrecision(rank_list, true_list):
+    new_rank_list = {}
+
+    k = 11    
+    #select the coorsponding cluster for the rank list
+    for center, list in rank_list.iteritems():
+        sel_center = center
+        max_com = 0
+        for theta, arr in true_list.iteritems():
+            ret = compareList(list[:k], arr[:k]) 
+            if ret > max_com:
+                sel_center = theta
+                max_com =  ret
+
+        new_rank_list[sel_center] = list
+
+    recall = {}
+    prec = {}
+    max_len = 0
+    for theta, list in new_rank_list.iteritems():
+        recall[theta] = []
+        prec[theta] = []
+        true_terms = true_list[theta]
+        rel = 0.0
+        count = 0.0
+        if len(list) > max_len:
+            max_len = len(list)
+
+        for item in list:
+            if item in true_terms:
+                rel += 1
+            count += 1
+            
+            pr = rel/count
+            re = rel/len(true_terms)
+            
+            recall[theta].append(re)
+            prec[theta].append(pr)
+
+    aver_recall = [0 for i in range(max_len)]
+    aver_prec = [0 for i in range(max_len)]
+    for theta in recall:
+        num = 0.0
+        for k in range(max_len):
+            if k < len(recall[theta]):
+                aver_recall[k] += recall[theta][k]
+                aver_prec[k] += prec[theta][k]
+    
+    theta_num  = float(len(prec))
+    aver_prec = [i/theta_num for i in aver_prec]
+    aver_recall = [i/theta_num for i in aver_recall]
+
+    return aver_prec, aver_recall
+
+def precisionRank(rank_list, true_cluster):
+    new_rank_list = {}
+
+    k = 11    
+    #select the coorsponding cluster for the rank list
+    for center, list in rank_list.iteritems():
+        sel_center = center
+        max_com = 0
+        for theta, arr in true_cluster.iteritems():
+            ret = compareList(list[:k], arr[:k]) 
+            if ret > max_com:
+                sel_center = theta
+                max_com =  ret
+
+        new_rank_list[sel_center] = list
+
+    #cumulative precision
+    print new_rank_list
+    accu = []
+    for count in range(1, k+1):
+        s = 0
+        for theta, list in new_rank_list.iteritems():
+            if count >= len(list):
+                continue
+
+            arr = true_cluster[theta]
+            if list[count] in arr:
+                s += 1
+        accu.append(s)
+
+    prec = []
+    rec = []
+    for count in range(1, k+1): 
+        ac = sum(accu[:count])/float(count*len(true_cluster))
+        prec.append(ac)
+
+    print prec
+    return prec
+
 def purityOfCluster(cluster1, cluster2):
     cluster_lable= {};
     label = 1;
@@ -81,38 +182,6 @@ def purity(cluster_truth, cluster):
         purity_num = purity_num + max_purity;
 
     return purity_num / float(len(cluster_truth));
-
-def closest(term, dis_matrix, sel_tokens):
-    min_dis = 10000;
-    chosen_term = '';
-    for term2, dis in dis_matrix[term].iteritems():
-        if term == term2:
-            continue;
-            
-        if dis < min_dis and term2 in sel_tokens:
-            min_dis = dis;
-            chosen_term = term2;
-    return chosen_term;
-
-def K_NN(dis_matrix, truth_file, K, format='unicode'):
-    cluster, truth_label = loadCluster(truth_file, format);
-    #k-nn
-    accu = 0;
-    for term in dis_matrix.keys():
-        if term not in truth_label.keys():
-            continue;
-
-        chosen_term = closest(term, dis_matrix, truth_label.keys());
-        if chosen_term == '':
-            continue;
-
-        chosen_cluster = truth_label[chosen_term];
-        truth_cluster = truth_label[term];
-        
-        if chosen_cluster == truth_cluster:
-            accu = accu + 1;
-
-    return accu/float(len(truth_label));
 
 def purityFunc(truth_file, cluster_file, format='unicode'):
     cluster, truth_label = loadCluster(truth_file, format);

@@ -41,14 +41,40 @@ def normTimeLocs(time_locs):
         for loc_index, fre in locs.iteritems():
             if sum > 0:
                 locs[loc_index] /= sum;
+#not used
+#def meanFilter(term_prob):
+#    new_term_prob = copy.copydeep(term_prob);
 
-def meanFilter(term_prob):
-    new_term_prob = copy.copydeep(term_prob);
-
-    for term, time_bin in term_prob.iteritems():
-        for time, fre in time_bin.iteritems():
-            time = int(time);
+#    for term, time_bin in term_prob.iteritems():
+#        for time, fre in time_bin.iteritems():
+#            time = int(time);
+ 
+def genNewDis(term_dis, words):
+    new_dis = {}
+    for key1 in term_dis.keys():
+        if key1 not in words:
+            continue;
     
+        new_dis[key1] = term_dis[key1]
+
+    return new_dis
+
+def genNewDisMatrix(dis_matrix, words):
+    new_dis = {}
+    for key1 in dis_matrix.keys():
+        if key1 not in words:
+            continue;
+        
+        new_dis[key1] = {}
+        for key2 in dis_matrix[key1].keys():
+            if key2 not in words:
+                continue
+
+            new_dis[key1][key2] = dis_matrix[key1][key2]
+
+    return new_dis
+
+   
 def disMatrixFilter(dis_matrix, words):
     for key1 in dis_matrix.keys():
         if key1 not in words:
@@ -183,7 +209,7 @@ def getThetaTimeWindow(cluster_fre):
             if time <= right and time >= left:
                 square_window[theta][time] = cumu_prob_thred/bin_count;
             else:
-                square_window[theta][time] = 0.1*(1 - cumu_prob_thred) / (max_time - bin_count);
+                square_window[theta][time] = 0; #0.1*(1 - cumu_prob_thred) / (max_time - bin_count);
        
         #gen the gauss window
         mu = temp_max_time;
@@ -194,11 +220,70 @@ def getThetaTimeWindow(cluster_fre):
     return square_window, gauss_window;
 
 #this function is used to calculate the p(theta|t) p(t|theta)
+def getThetaProbSoft(clusters, term_one_place_time, event_num):
+    prob_theta_time = {}
+    cluster_fre = {};
+    #event_num = len(clusters)       
+    for i in clusters.keys():
+        cluster_fre[i] = {};
+
+    for cluster_idx, cluster in clusters.iteritems():
+        for token in cluster:
+            if token not in term_one_place_time.keys():
+                continue;
+            time_bins = term_one_place_time[token];
+            for time, freq in time_bins.iteritems():
+                #time = int(time);
+        
+                if time not in cluster_fre[cluster_idx].keys():
+                    cluster_fre[cluster_idx][time] = 0.0;
+
+                cluster_fre[cluster_idx][time] = cluster_fre[cluster_idx][time] + freq;
+   
+    #cal p(t|theta)
+    prob_time_theta = cluster_fre;
+    for clustetr_idx, time_fre in prob_time_theta.iteritems():
+        normalizeDic(time_fre);  #notice: the time_fre is changed in the normalizeDic function
+
+    return prob_time_theta;
+
+#this function is used to calculate the p(theta|t) p(t|theta)
+def getWeightThetaTimeProb2(clusters, term_one_place_time, event_num):
+    prob_theta_time = {}
+    cluster_fre = {};
+    #event_num = len(clusters)       
+    for i in clusters.keys():
+        cluster_fre[i] = {};
+
+    for cluster_idx, cluster in clusters.iteritems():
+        wei = len(cluster) + 1
+        for token in cluster:
+            wei -= 1
+            if token not in term_one_place_time.keys():
+                continue;
+            time_bins = term_one_place_time[token];
+            for time, freq in time_bins.iteritems():
+                #time = int(time);
+        
+                if time not in cluster_fre[cluster_idx].keys():
+                    cluster_fre[cluster_idx][time] = 0.0;
+
+                cluster_fre[cluster_idx][time] += freq*wei;
+   
+    #cal p(t|theta)
+    prob_time_theta = cluster_fre;
+    for clustetr_idx, time_fre in prob_time_theta.iteritems():
+        normalizeDic(time_fre);  #notice: the time_fre is changed in the normalizeDic function
+
+    return prob_time_theta;
+
+
+#this function is used to calculate the p(theta|t) p(t|theta)
 def getThetaTimeProb2(clusters, term_one_place_time, event_num):
     prob_theta_time = {}
     cluster_fre = {};
     #event_num = len(clusters)       
-    for i in range(1, event_num+1):
+    for i in clusters.keys():
         cluster_fre[i] = {};
 
     for cluster_idx, cluster in clusters.iteritems():
@@ -292,7 +377,6 @@ def getWeightThetaTimeProb(clusters, centers, term_one_place_time, event_num):
             time_bins = term_one_place_time[token];
             
             dis = DisCalculator.disOfDic(center_timebin, time_bins);
-            print center, token, dis;
             if dis == 0:
                 weight = 100;
             else:

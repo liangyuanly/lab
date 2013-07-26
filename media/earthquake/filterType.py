@@ -146,6 +146,13 @@ def locWindowFilter(cluster_fre):
     
     return square_window, gauss_window;
 
+def sumDic(dic):
+    sum = 0
+    for key, fre in dic.iteritems():
+        sum += fre
+
+    return sum
+
 def locWindow(loc_bin):
     max_fre = 0;
     temp_max_loc = 0;
@@ -159,7 +166,7 @@ def locWindow(loc_bin):
     if len(loc_bin) <= 0:
         return {},  {};
 
-    cumu_prob_thred = 0.68;
+    cumu_prob_thred = 0.5;
     #find the windows which cover 68% probability 
     sub_prob = loc_bin[temp_max_loc];
     lat, lon = temp_max_loc.split('_');
@@ -177,25 +184,30 @@ def locWindow(loc_bin):
             break;
 
         #fix the lat, increase lon
-        for i in range(left, right):
-            index = str(up) + '.0' + '_' + str(i) + '.0';
+        for i in range(left, right+1):
+            index = str(up)  + '_' + str(i);
             #print index;
             if index in loc_bin:
                 sub_prob += loc_bin[index];
+            else:
+                print 'index not in'
             
-            index = str(down) + '.0' + '_' + str(i) + '.0';
+            index = str(down) + '_' + str(i);
             if index in loc_bin:
                 sub_prob += loc_bin[index];
-        
-        for i in range(down, up):
-            index = str(left) + '.0' + '_' + str(i) + '.0';
+            print sub_prob
+
+        for i in range(down+1, up):
+            index = str(left) + '_' + str(i);
             if index in loc_bin:
                 sub_prob += loc_bin[index];
             
-            index = str(right) + '.0' + '_' + str(i) + '.0';
+            index = str(right)  + '_' + str(i);
             if index in loc_bin:
                 sub_prob += loc_bin[index];
 
+            print sub_prob
+        
         left -= 1;
         right += 1;
         up += 1;
@@ -302,7 +314,7 @@ def getGaussFilterLocDis(term_dis, window, clusters):
     new_term_dis = {};
     print window;
     for cluster_index, cluster in clusters.iteritems():
-        cluster_index = int(cluster_index);
+        #cluster_index = int(cluster_index);
         [lat_mu, lon_mu] = window[cluster_index]['mu'];
         sigma = window[cluster_index]['sigma'];
         for term in cluster:

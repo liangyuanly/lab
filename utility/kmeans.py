@@ -15,6 +15,7 @@ import random
 import scipy
 import scipy.cluster.hierarchy as sch
 from common import *
+from loadFile import *
 
 def centerTokens(dist_matrix, cluster_label):
     new_centroid = [];
@@ -111,7 +112,8 @@ def kmeansTokens(matrix, K, init_centers=[]):
 
     #return hierachyClusterTokens(matrix, K)
     
-    list = matrix;
+    list = matrix.keys();
+
     if len(init_centers) <= 0:
         centroid = random.sample(list, K);
     else:
@@ -131,10 +133,10 @@ def kmeansTokens(matrix, K, init_centers=[]):
 
         for token in list:
             min_dis = 11111111;
+            sel_label = ''
             for center in centroid:
                 if center not in matrix:      
                     print 'error happened, center is not in dis_matrix.keys()'
-                    print center, matrix
                     #the error is proably brought by the init_centers
                     center = random.sample(list, 1);
                     center = center[0]
@@ -142,13 +144,16 @@ def kmeansTokens(matrix, K, init_centers=[]):
                         center = random.sample(list, 1);
                         center = center[0]
 
-                if center not in cluster:
-                    cluster[center] = [];
-
                 if token in matrix[center] and matrix[center][token] < min_dis:
                     min_dis = matrix[center][token];
                     sel_label = center;
-            cluster[sel_label].append(token);
+                
+           
+            if not sel_label == '':
+                if sel_label not in cluster:
+                    cluster[sel_label] = [];
+
+                cluster[sel_label].append(token);
 
         # re-cal the centriod
         new_centroid = centerTokens(matrix, cluster);
@@ -172,4 +177,92 @@ def kmeansTokensWrap(dis_matrix, cluster_num, centroid = []):
         index += 1;
     
     return new_cluster, centers
+
+def K_NN(dis_matrix, truth_file, K, format='unicode'):
+    cluster, truth_label = loadCluster(truth_file, format);
+    #k-nn
+    accu = 0;
+    for term in dis_matrix.keys():
+        if term not in truth_label.keys():
+            continue;
+
+        chosen_term = closest(term, dis_matrix, truth_label.keys());
+        if chosen_term == '':
+            continue;
+
+        chosen_cluster = truth_label[chosen_term];
+        truth_cluster = truth_label[term];
+        
+        if chosen_cluster == truth_cluster:
+            accu = accu + 1;
+
+    return accu/float(len(truth_label));
+
+def labelCluster(true_cluster):
+    label = {}
+    for cl, cluster in true_cluster.iteritems():
+        for term in cluster:
+            if term not in label:
+                label[term] = []
+
+            label[term].append(cl)
+
+    return label
+
+def accuracyCluster(cluster, true_cluster):
+    cluster_label = labelCluster(cluster)
+    truth_label = labelCluster(true_cluster);
+    acc = 0
+    print cluster_label
+    print truth_label
+    for term, label in cluster_label.iteritems():
+        if term not in truth_label:
+            continue
+
+        print term, label, truth_label[term]
+
+        for cl in label:
+            if cl in truth_label[term]:
+                acc += 1;
+                break
+            else:
+                for t in truth_label[term]:
+                    terms = true_cluster[t]
+                    if cl in terms:
+                        acc += 1
+                        break
+
+    return acc/float(len(truth_label))
+
+def K_NN_cluster(dis_matrix, true_cluster, K):
+    truth_label = labelCluster(true_cluster);
+    #k-nn
+    accu = 0;
+    for term in dis_matrix.keys():
+        if term not in truth_label.keys():
+            continue;
+
+        chosen_term = closest(term, dis_matrix, truth_label.keys());
+        if chosen_term == '':
+            continue;
+
+        chosen_cluster = truth_label[chosen_term];
+        truth_cluster = truth_label[term];
+        
+        if truth_cluster == chosen_cluster:
+            accu = accu + 1;
+    
+    return accu/float(len(truth_label));
+
+def closest(term, dis_matrix, sel_tokens):
+    min_dis = 10000;
+    chosen_term = '';
+    for term2, dis in dis_matrix[term].iteritems():
+        if term == term2:
+            continue;
+            
+        if dis < min_dis and term2 in sel_tokens:
+            min_dis = dis;
+            chosen_term = term2;
+    return chosen_term;
 

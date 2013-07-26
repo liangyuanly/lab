@@ -7,13 +7,85 @@ import operator
 import string
 import math
 import sys
-sys.path.append('utility/')
+sys.path.append('../../utility/')
 from common import normalizeDic
 from operator import itemgetter
 from kmeans import kmeansTokens
 import networkx as nx
 
 class DisCalculator:
+    @staticmethod
+    def disOfTemp2(term_time_bin, dis_method, dayorhour):
+        dis_matrix = {};
+        for term1 in term_time_bin.keys():
+            dis_matrix[term1] = {};
+        
+        count = 1;
+        for term1 in term_time_bin.keys():
+            for term2 in term_time_bin.keys():
+                if cmp(term1, term2) > 0:
+                    continue;
+
+                if cmp(term1, term2) == 0:
+                    dis_matrix[term1][term2] = 0;
+                    continue;
+
+                time_bin1 = term_time_bin[term1];
+                time_bin2 = term_time_bin[term2];
+
+                dis = DisCalculator.disOfDic(time_bin1, time_bin2);
+                dis_matrix[term1][term2] = dis;
+                dis_matrix[term2][term1] = dis;
+        
+        for term in dis_matrix:
+            normalizeDic(dis_matrix[term])
+
+        return dis_matrix;
+
+    @staticmethod
+    def disOfOcc(dis_occ, reverse = False):
+        word_sum = {}
+        for word, arr in dis_occ.iteritems():
+            n = 0.0
+            for w, num in arr.iteritems():
+                n += num
+            word_sum[word] = n
+
+        new_matrix = {}
+        for w1, arr in dis_occ.iteritems():
+            new_matrix[w1] = {}
+            for w2, fre in arr.iteritems():
+                if reverse ==  False:
+                    new_matrix[w1][w2] = (word_sum[w1]*word_sum[w2])/fre
+                else:
+                    new_matrix[w1][w2] = fre/(word_sum[w1]*word_sum[w2])
+        
+        for w1, arr in new_matrix.iteritems():
+            normalizeDic(arr)
+
+        return new_matrix
+
+    @staticmethod
+    def disOfOccTemp(coocc_dis, temp_dis):
+        new_dis = {};
+        for w1, arr in coocc_dis.iteritems():
+            new_dis[w1] = {}
+            for w2, dis in arr.iteritems():
+                new_dis[w1][w2] = dis
+
+        for w1, arr in temp_dis.iteritems():
+            if w1 not in new_dis:
+                new_dis[w1] = {}
+
+            for w2, dis in arr.iteritems():
+                if w2 not in new_dis[w1]:
+                    new_dis[w1][w2] = 100000
+
+                new_dis[w1][w2] *= dis
+
+        return new_dis
+
+
     @staticmethod
     def disOfDic(dic1, dic2, method = 'abs'):
         dis = 0.0;

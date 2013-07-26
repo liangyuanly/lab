@@ -28,6 +28,7 @@ from graphOfTokens import disOfTerm, disOfTimeGeo, transPoints, disOfTemp2, tran
 from termEventCommon import *
 #from cluster import ClusterUsingLocFilter
 from disMeasure import DisCalculator
+from filterType import *
 
 def plotOnJPMap(points, title, show = 1):
     return;
@@ -544,8 +545,8 @@ def windowIterLoc(term_locs, pre_cluster, centers, cluster_num, truth_file, out_
     #plotThetaLoc(theta_prob, 'init');
     while isChanging:
         #############use the square window
-        #square_window, gauss_window = tmpLocWindowFilter(theta_prob);
-        square_window, gauss_window = getThetaLocWindow(theta_prob);
+        square_window, gauss_window = locWindowFilter(theta_prob);
+        #square_window, gauss_window = getThetaLocWindow(theta_prob);
         
         ############use the probability window
         #get the new theta prob
