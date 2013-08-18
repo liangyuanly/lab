@@ -1,0 +1,37 @@
+福島	付近	最大	東経	発表	地震	県沖	茨城	震源	震度	約	情報	時	頃地	震	度	深さ	津波	規模	
+quake	気象庁	east coast	magnitude	japan	est asia
+earthquake	epicenter	honshu	occured	hmrd	occurred	utc	eqbot
+分頃	速報	details	iwaki
+eqjp	depth	発生	
+pinqa
+
+方	無事	
+営業
+電車
+歩い	帰宅	橋
+交差点	徒歩	通過	人	到着	
+運転	
+渋滞
+通り
+
+外出	所	宮城
+避難
+場所
+
+煙
+火災
+崩壊
+
+原子力発電所
+核の
+nuclear
+被災
+放射線
+漏れ
+原発
+廃止
+原子
+東電
+東京電力
+核燃料
+fukushima	

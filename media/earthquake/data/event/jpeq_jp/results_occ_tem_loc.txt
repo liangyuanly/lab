@@ -1,0 +1,10 @@
+purity based on Manhattan distance
+temp_post	0.746753246753
+unfiltered	0.715584415584
+coocur	0.733766233766
+
+Accuracy based on Manhattan distance
+temp_post	0.809090909091
+unfiltered	0.844155844156
+coocur	0.805194805195
+

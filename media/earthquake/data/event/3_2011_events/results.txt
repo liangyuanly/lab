@@ -1,0 +1,101 @@
+{"temp_square_avernr": 0.46176470588235291, "temp": 0.45735294117647063, "temp_post": 0.49117647058823533, "temp_square_normnr": 0.46764705882352936, "temp_gauss_avernr": 0.45882352941176469, "temp_square": 0.44411764705882356, "temp_gauss": 0.42941176470588233, "coocur": 0.42647058823529405, "temp_post_normnr": 0.48970588235294121, "temp_post_avernr": 0.51029411764705868, "temp_gauss_normnr": 0.48676470588235299}
+{"temp_square_avernr": 0.52647058823529402, "temp": 0.54411764705882348, "temp_post": 0.52205882352941169, "temp_square_normnr": 0.55441176470588227, "temp_gauss_avernr": 0.57794117647058818, "temp_square": 0.51470588235294112, "temp_gauss": 0.51911764705882346, "coocur": 0.2205882352941177, "temp_post_normnr": 0.51176470588235301, "temp_post_avernr": 0.5352941176470587, "temp_gauss_normnr": 0.55441176470588238}
+{"temp_square_avernr": 0.45147058823529412, "temp": 0.46911764705882353, "temp_post": 0.4897058823529411, "temp_square_normnr": 0.4897058823529411, "temp_gauss_avernr": 0.4485294117647059, "temp_square": 0.4779411764705882, "temp_gauss": 0.49558823529411766, "coocur": 0.42794117647058821, "temp_post_normnr": 0.47647058823529403, "temp_post_avernr": 0.49264705882352933, "temp_gauss_normnr": 0.47941176470588232}
+{"temp_square_avernr": 0.52794117647058825, "temp": 0.54411764705882348, "temp_post": 0.51911764705882357, "temp_square_normnr": 0.54117647058823526, "temp_gauss_avernr": 0.56029411764705883, "temp_square": 0.49558823529411766, "temp_gauss": 0.51470588235294112, "coocur": 0.2205882352941177, "temp_post_normnr": 0.51323529411764701, "temp_post_avernr": 0.51911764705882346, "temp_gauss_normnr": 0.55294117647058827}
+purity based on Manhattan distance
+temp_square_avernr	0.429411764706
+temp	0.447058823529
+temp_post	0.491176470588
+temp_square_normnr	0.432352941176
+temp_gauss_avernr	0.458823529412
+temp_square	0.432352941176
+temp_gauss	0.458823529412
+coocur	0.414705882353
+temp_post_normnr	0.488235294118
+temp_post_avernr	0.464705882353
+temp_gauss_normnr	0.461764705882
+Accuracy based on Manhattan distance
+temp_square_avernr	0.588235294118
+temp	0.470588235294
+temp_post	0.476470588235
+temp_square_normnr	0.602941176471
+temp_gauss_avernr	0.570588235294
+temp_square	0.523529411765
+temp_gauss	0.532352941176
+coocur	0.220588235294
+temp_post_normnr	0.455882352941
+temp_post_avernr	0.511764705882
+temp_gauss_normnr	0.573529411765
+purity based on Manhattan distance
+temp_square_avernr	0.45
+temp	0.444117647059
+temp_post	0.479411764706
+temp_square_normnr	0.444117647059
+temp_gauss_avernr	0.485294117647
+temp_square	0.464705882353
+temp_gauss	0.5
+coocur	0.444117647059
+temp_post_normnr	0.476470588235
+temp_post_avernr	0.479411764706
+temp_gauss_normnr	0.488235294118
+Accuracy based on Manhattan distance
+temp_square_avernr	0.561764705882
+temp	0.470588235294
+temp_post	0.567647058824
+temp_square_normnr	0.576470588235
+temp_gauss_avernr	0.5
+temp_square	0.564705882353
+temp_gauss	0.514705882353
+coocur	0.220588235294
+temp_post_normnr	0.558823529412
+temp_post_avernr	0.558823529412
+temp_gauss_normnr	0.535294117647
+purity based on Manhattan distance
+temp_square_avernr	0.367647058824
+temp	0.338235294118
+temp_post	0.485294117647
+temp_square_normnr	0.367647058824
+temp_gauss_avernr	0.426470588235
+temp_square	0.338235294118
+temp_gauss	0.455882352941
+coocur	0.426470588235
+temp_post_normnr	0.514705882353
+temp_post_avernr	0.5
+temp_gauss_normnr	0.5
+Accuracy based on Manhattan distance
+temp_square_avernr	0.470588235294
+temp	0.470588235294
+temp_post	0.529411764706
+temp_square_normnr	0.470588235294
+temp_gauss_avernr	0.5
+temp_square	0.485294117647
+temp_gauss	0.514705882353
+coocur	0.220588235294
+temp_post_normnr	0.5
+temp_post_avernr	0.544117647059
+temp_gauss_normnr	0.529411764706
+purity based on KL distance
+temp_square_avernr	0.382352941176
+temp	0.279411764706
+temp_post	0.397058823529
+temp_square_normnr	0.352941176471
+temp_gauss_avernr	0.338235294118
+temp_square	0.338235294118
+temp_gauss	0.352941176471
+coocur	0.397058823529
+temp_post_normnr	0.411764705882
+temp_post_avernr	0.441176470588
+temp_gauss_normnr	0.323529411765
+Accuracy based on KL distance
+temp_square_avernr	0.426470588235
+temp	0.235294117647
+temp_post	0.205882352941
+temp_square_normnr	0.426470588235
+temp_gauss_avernr	0.455882352941
+temp_square	0.338235294118
+temp_gauss	0.382352941176
+coocur	0.220588235294
+temp_post_normnr	0.205882352941
+temp_post_avernr	0.220588235294
+temp_gauss_normnr	0.426470588235
+

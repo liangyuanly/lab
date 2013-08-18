@@ -1,0 +1,12 @@
+purity based on Manhattan distance
+temp_net_iter	0.567647058824
+temp_net	0.55
+cooccur	0.544117647059
+temp	0.535294117647
+
+Accuracy based on Manhattan distance
+temp_net_iter	0.735294117647
+temp_net	0.691176470588
+cooccur	0.338235294118
+temp	0.544117647059
+

@@ -1,0 +1,32 @@
+purity based on Manhattan distance
+temp_square_aver_nr	0.718181818182
+temp_post_norm_nr	0.709090909091
+temp_aver_norm_nr	0.745454545455
+temp_post	0.731818181818
+temp	0.809090909091
+temp_gauss_norm_nr	0.713636363636
+temp_gauss_aver_nr	0.718181818182
+temp_square	0.713636363636
+temp_average	0.759090909091
+coocur	0.722727272727
+temp_gauss	0.686363636364
+temp_post_aver_nr	0.736363636364
+temp_square_norm_nr	0.709090909091
+temp_aver_aver_nr	0.759090909091
+
+Accuracy based on Manhattan distance
+temp_square_aver_nr	0.881818181818
+temp_post_norm_nr	0.836363636364
+temp_aver_norm_nr	0.768181818182
+temp_post	0.886363636364
+temp	0.909090909091
+temp_gauss_norm_nr	0.813636363636
+temp_gauss_aver_nr	0.9
+temp_square	0.827272727273
+temp_average	0.818181818182
+coocur	0.863636363636
+temp_gauss	0.840909090909
+temp_post_aver_nr	0.836363636364
+temp_square_norm_nr	0.818181818182
+temp_aver_aver_nr	0.809090909091
+

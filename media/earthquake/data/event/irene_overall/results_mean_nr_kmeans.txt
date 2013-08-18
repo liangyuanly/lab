@@ -1,0 +1,6 @@
+purity based on Manhattan distance
+temp_post	0.75
+
+Accuracy based on Manhattan distance
+temp_post	0.790909090909
+

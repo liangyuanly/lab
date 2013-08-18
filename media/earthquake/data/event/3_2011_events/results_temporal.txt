@@ -1,0 +1,10 @@
+purity based on Manhattan distance
+temp_soft	0.526470588235
+temp_post	0.547058823529
+temp	0.541176470588
+
+Accuracy based on Manhattan distance
+temp_soft	0.138235294118
+temp_post	0.608823529412
+temp	0.544117647059
+

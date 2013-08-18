@@ -1,0 +1,1 @@
+{"temp_spa_post_accuracy": 0.47058823529411764, "temp_spa": 0.26470588235294118, "temp_spa_accuracy": 0.3235294117647059, "temp_spa_post": 0.4264705882352941}
